@@ -10,24 +10,37 @@ const app = express()
 
 app.use(express.json())
 
-app.post("/user", async (req, res) => {
-  const { email, name } = req.body;
+app.post("/token", async (req, res) => {
+  const { aadhaar, consent } = req.body;
 
   try {
-    const user = await prisma.user.create({
+    let customer = await prisma.customer.findUnique({
+      where: { aadhaar }
+    });
+
+    if (!customer) {
+      customer = await prisma.customer.create({
+        data: { aadhaar }
+      });
+    }
+
+    const token = await prisma.token.create({
       data: {
-        email: email,
-        name: name
+        customerId: customer.id,
+        consent
       }
-    })
-    res.status(201).json({
-      message: user
-    })
+    });
+
+    return res.status(201).json({ token });
+
+  } catch (err) {
+    console.error("Server Error", err);
+
+    return res.status(500).json({
+      error: "Something went wrong"
+    });
   }
-  catch(err) {
-    console.error("Server Error", err)
-  }
-})
+});
 
 app.listen(3000, () => {
   console.log("Running on PORT 3000")

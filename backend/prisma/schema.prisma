@@ -6,8 +6,20 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id    Int     @id @default(autoincrement())
-  email String  @unique
-  name  String?
+model Customer {
+  id         String     @id @default(uuid())
+  aadhaar    String     @unique
+  createdAt  DateTime   @default(now())
+
+  tokens Token[]
+}
+
+model Token {
+  id         String      @id @default(uuid())
+  customerId String
+  consent    Boolean
+  status     String      @default("Active")
+  createdAt  DateTime    @default(now())
+
+  customer   Customer    @relation(fields: [customerId], references: [id])
 }
