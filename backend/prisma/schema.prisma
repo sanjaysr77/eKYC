@@ -7,9 +7,11 @@ datasource db {
 }
 
 model Customer {
-  id         String     @id @default(uuid())
-  aadhaar    String     @unique
-  createdAt  DateTime   @default(now())
+  id              String     @id @default(uuid())
+  aadhaar         String     @unique
+  verified        Boolean    @default(false)
+  verificationId  String?    @unique
+  createdAt       DateTime   @default(now())
 
   tokens Token[]
 }
@@ -23,3 +25,6 @@ model Token {
 
   customer   Customer    @relation(fields: [customerId], references: [id])
 }
+
+
+/* In Prisma, customerId is the actual foreign-key column stored in the database. @relation(fields: [customerId], references: [id]) tells Prisma that Token.customerId points to Customer.id. tokens Token[] does not create a column or table; it is a Prisma relation field that lets you navigate from a Customer to all its related Token records using customer.tokens. So, customerId stores the relationship; tokens Token[] lets Prisma access the relationship from the other direction. */
