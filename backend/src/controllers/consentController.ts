@@ -9,7 +9,7 @@ const prisma = new PrismaClient({ adapter: pool })
 
 const router = express.Router();
 
-export async function token (req: Request, res: Response) {
+export async function submitConsent (req: Request, res: Response) {
     const { aadhaar, consent } = req.body;
 
   try {
@@ -38,14 +38,14 @@ export async function token (req: Request, res: Response) {
       });
     }
 
-    const tokenRecord = await prisma.token.create({
+    const consentRecord = await prisma.consent.create({
       data: {
         customerId: customer.id,
-        consent
+        granted: consent
       }
     });
 
-    return res.status(201).json({ token: tokenRecord });
+    return res.status(201).json({ consent: consentRecord });
 
   } catch (err) {
     console.error("Server Error", err);

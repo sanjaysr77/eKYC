@@ -13,13 +13,13 @@ model Customer {
   verificationId  String?    @unique
   createdAt       DateTime   @default(now())
 
-  tokens Token[]
+  consents Consent[]
 }
 
-model Token {
+model Consent {
   id         String      @id @default(uuid())
   customerId String
-  consent    Boolean
+  granted    Boolean
   status     String      @default("Active")
   createdAt  DateTime    @default(now())
 

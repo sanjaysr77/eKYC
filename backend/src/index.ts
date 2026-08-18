@@ -2,7 +2,7 @@
 // import { PrismaClient } from "@prisma/client/index"
 // import { PrismaPg } from '@prisma/adapter-pg'
 import express from 'express'
-import tokenRoutes from "./routes/tokenRoutes.js";
+import consentRoutes from "./routes/consentRoutes.js";
 
 // const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 // const prisma = new PrismaClient({ adapter: pool })
@@ -43,7 +43,7 @@ app.use(express.json())
 //   }
 // });
 
-app.use("/token", tokenRoutes )
+app.use("/consent", consentRoutes )
 
 app.listen(3000, () => {
   console.log("Running on PORT 3000")
