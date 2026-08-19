@@ -9,11 +9,11 @@ const prisma = new PrismaClient({ adapter: pool })
 
 const router = express.Router();
 
-export async function submitConsent (req: Request, res: Response) {
-    const { aadhaar, consent } = req.body;
+export async function submitConsent(req: Request, res: Response) {
+  const { aadhaar, consent } = req.body;
 
   try {
-    
+
     const verificationResult = await verifyAadhaar(aadhaar);
 
     if (!verificationResult.verified) {
@@ -55,6 +55,45 @@ export async function submitConsent (req: Request, res: Response) {
     });
   }
 };
-  
+
+export async function getConsentRecords(req: Request, res: Response) {
+
+  try {
+    const { customerId } = req.params;
+
+    if (!customerId || Array.isArray(customerId)) {
+      return res.status(400).json({
+        message: "Invalid customer ID.",
+      });
+    }
+
+    const consentRecords = await prisma.consent.findMany({
+      where: {
+        customerId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
+
+    if (consentRecords.length === 0) {
+      return res.status(404).json({
+        message: "No consent records found."
+      })
+    }
+
+    return res.status(200).json({
+      customerId,
+      consentRecords
+    })
+  }
+  catch (error) {
+    return res.status(500).json({
+      message: "Internal Server Error.",
+      error: error
+    })
+  }
+
+}
 
 export default router;
