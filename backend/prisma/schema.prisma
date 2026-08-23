@@ -6,6 +6,8 @@ datasource db {
   provider = "postgresql"
 }
 
+/* In Prisma, customerId is the actual foreign-key column stored in the database. @relation(fields: [customerId], references: [id]) tells Prisma that Consent.customerId points to Customer.id. consents Consent[] does not create a column or table; it is a Prisma relation field that lets you navigate from a Customer to all its related Consent records. So, customerId stores the relationship, while consents Consent[] lets Prisma access the related Consent records from the Customer side. */
+
 model Customer {
   id              String     @id @default(uuid())
   aadhaar         String     @unique
@@ -14,6 +16,7 @@ model Customer {
   createdAt       DateTime   @default(now())
 
   consents Consent[]
+  tokens   Token[]
 }
 
 model Consent {
@@ -24,7 +27,21 @@ model Consent {
   createdAt  DateTime    @default(now())
 
   customer   Customer    @relation(fields: [customerId], references: [id])
+
+  tokens   Token[]
+}
+
+model Token {
+  id         String      @id @default(uuid())
+  customerId String
+  consentId  String
+  status     String      @default("Not-Active") 
+  createdAt  DateTime    @default(now())
+  expiresAt  DateTime
+
+  customer   Customer    @relation(fields:[customerId], references: [id])
+
+  consent    Consent     @relation(fields:[consentId], references: [id])
 }
 
 
-/* In Prisma, customerId is the actual foreign-key column stored in the database. @relation(fields: [customerId], references: [id]) tells Prisma that Token.customerId points to Customer.id. tokens Token[] does not create a column or table; it is a Prisma relation field that lets you navigate from a Customer to all its related Token records using customer.tokens. So, customerId stores the relationship; tokens Token[] lets Prisma access the relationship from the other direction. */
