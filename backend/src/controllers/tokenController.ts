@@ -41,28 +41,50 @@ export async function token(req: Request, res: Response) {
             })
         }
 
-        const existingToken = await prisma.token.findFirst({
-            where: {
-                customerId: customerId,
-                expiresAt: {
-                    gt: new Date(),
-                },
-            }
-        })
-
-        if (existingToken) {
-            return res.status(200).json({
-                message: "Active token already exists",
-                token: existingToken.id,
-                expiresAt: existingToken.expiresAt
-            })
-        }
-
         const latestConsent = customer.consents[0];
 
         if (!latestConsent || !latestConsent.granted) {
             return res.status(400).json({
                 message: "Consent not granted. Token cannot be generated"
+            })
+        }
+
+        const expiredToken = await prisma.token.findFirst({
+            where: {
+                customerId,
+                status: "ACTIVE",
+                expiresAt: {
+                    lte: new Date()
+                }
+            }
+        })
+
+        if (expiredToken) {
+            await prisma.token.update({
+                where: {
+                    id: expiredToken.id
+                },
+                data: {
+                    status: "EXPIRED"
+                }
+            })
+        }
+
+        const activeToken = await prisma.token.findFirst({
+            where: {
+                customerId: customerId,
+                status: "ACTIVE",
+                expiresAt: {
+                    gt: new Date(),
+                }
+            },
+        })
+
+        if (activeToken) {
+            return res.status(200).json({
+                message: "Active token already exists",
+                token: activeToken.id,
+                expiresAt: activeToken.expiresAt
             })
         }
 
