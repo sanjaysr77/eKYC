@@ -56,6 +56,9 @@ export async function token(req: Request, res: Response) {
                 expiresAt: {
                     lte: new Date()
                 }
+            },
+            orderBy: {
+                createdAt: "desc"
             }
         })
 
