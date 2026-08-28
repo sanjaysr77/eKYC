@@ -2,13 +2,14 @@ import 'dotenv/config'
 import { PrismaClient } from "@prisma/client/index"
 import { PrismaPg } from '@prisma/adapter-pg'
 import express, { type Request, type Response } from "express"
+import { markExpiredToken } from '../services/tokenService.js'
 
 const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 const prisma = new PrismaClient({ adapter: pool })
 
 const router = express.Router();
 
-export async function token(req: Request, res: Response) {
+export async function tokenIssuance(req: Request, res: Response) {
 
     try {
         const customerId = req.body.customerId;
@@ -49,29 +50,7 @@ export async function token(req: Request, res: Response) {
             })
         }
 
-        const expiredToken = await prisma.token.findFirst({
-            where: {
-                customerId,
-                status: "ACTIVE",
-                expiresAt: {
-                    lte: new Date()
-                }
-            },
-            orderBy: {
-                createdAt: "desc"
-            }
-        })
-
-        if (expiredToken) {
-            await prisma.token.update({
-                where: {
-                    id: expiredToken.id
-                },
-                data: {
-                    status: "EXPIRED"
-                }
-            })
-        }
+        await markExpiredToken(customerId)
 
         const activeToken = await prisma.token.findFirst({
             where: {
@@ -118,5 +97,38 @@ export async function token(req: Request, res: Response) {
         })
     }
 }
+
+// export async function validate(req: Request, res: Response) {
+
+//     const tokenId = req.body.token;
+//     console.log("Token", tokenId)
+
+//     if (!tokenId) {
+//         return res.status(400).json({
+//             message: "Token Id is not present"
+//         })
+//     }
+
+//     const token = await prisma.token.findFirst({
+//         where: {
+//             id: tokenId,
+//             status: "ACTIVE"
+//         },
+//     })
+
+//     if (token) {
+//         res.status(200).json({
+//             message: "Active Token exists",
+//             token
+//         })
+//     }
+//     else{
+//         return res.status(400).json({
+//             message: "Validation failed, ACTIVE Token does not exist."
+//         })
+//     }
+
+//     console.log(token)
+// }
 
 export default router;

@@ -1,9 +1,10 @@
 
 import express from "express";
-import { token } from "../controllers/tokenController.js";
+import { tokenIssuance, validate } from "../controllers/tokenController.js";
 
 const router = express.Router()
 
-router.post("/", token)
+router.post("/issuance", tokenIssuance)
+router.post("/validate", validate)
 
 export default router;
