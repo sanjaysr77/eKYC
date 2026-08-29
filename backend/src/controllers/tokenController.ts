@@ -1,13 +1,11 @@
 import 'dotenv/config'
 import { PrismaClient } from "@prisma/client/index"
 import { PrismaPg } from '@prisma/adapter-pg'
-import express, { type Request, type Response } from "express"
+import { type Request, type Response } from "express"
 import { markExpiredToken } from '../services/tokenService.js'
 
 const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 const prisma = new PrismaClient({ adapter: pool })
-
-const router = express.Router();
 
 export async function tokenIssuance(req: Request, res: Response) {
 
@@ -98,37 +96,59 @@ export async function tokenIssuance(req: Request, res: Response) {
     }
 }
 
-// export async function validate(req: Request, res: Response) {
+export async function validate(req: Request, res: Response) {
+    try {
+        const tokenId = req.body.token;
 
-//     const tokenId = req.body.token;
-//     console.log("Token", tokenId)
+        if (!tokenId) {
+            return res.status(400).json({
+                message: "Token Id is not present"
+            })
+        }
 
-//     if (!tokenId) {
-//         return res.status(400).json({
-//             message: "Token Id is not present"
-//         })
-//     }
+        const tokenQuery = await prisma.token.findUnique({
+            where: {
+                id: tokenId
+            }
+        })
 
-//     const token = await prisma.token.findFirst({
-//         where: {
-//             id: tokenId,
-//             status: "ACTIVE"
-//         },
-//     })
+        if (!tokenQuery) {
+            return res.status(404).json({
+                message: "Token not found"
+            });
+        }
 
-//     if (token) {
-//         res.status(200).json({
-//             message: "Active Token exists",
-//             token
-//         })
-//     }
-//     else{
-//         return res.status(400).json({
-//             message: "Validation failed, ACTIVE Token does not exist."
-//         })
-//     }
+        const customerId = tokenQuery.customerId;
 
-//     console.log(token)
-// }
+        await markExpiredToken(customerId)
 
-export default router;
+        const token = await prisma.token.findFirst({
+            where: {
+                id: tokenId,
+                status: "ACTIVE"
+            },
+        })
+
+        if (token) {
+            return res.status(200).json({
+                message: "Active Token exists",
+                token
+            })
+        }
+
+        else {
+            return res.status(400).json({
+                message: "Validation failed, ACTIVE Token does not exist."
+            })
+        }
+
+    }
+
+    catch (error) {
+        console.error("Validation Error:", error);
+
+        return res.status(500).json({
+            message: "Internal Server Error"
+        })
+    }
+}

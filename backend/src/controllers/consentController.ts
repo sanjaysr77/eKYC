@@ -1,13 +1,11 @@
 import 'dotenv/config'
 import { PrismaClient } from "@prisma/client/index"
 import { PrismaPg } from '@prisma/adapter-pg'
-import express, { type Request, type Response } from "express"
+import { type Request, type Response } from "express"
 import { verifyAadhaar } from "../services/aadhaarVerificationService.js"
 
 const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 const prisma = new PrismaClient({ adapter: pool })
-
-const router = express.Router();
 
 export async function submitConsent(req: Request, res: Response) {
   const { aadhaar, consent } = req.body;
@@ -95,5 +93,3 @@ export async function getConsentRecords(req: Request, res: Response) {
   }
 
 }
-
-export default router;

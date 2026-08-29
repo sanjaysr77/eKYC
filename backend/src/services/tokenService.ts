@@ -5,9 +5,8 @@ import { PrismaPg } from '@prisma/adapter-pg'
 const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 const prisma = new PrismaClient({ adapter: pool })
 
-export async function markExpiredToken( customerId: string ) {
-
-    const expiredToken = await prisma.token.findFirst({
+export async function markExpiredToken(customerId: string) {
+    await prisma.token.updateMany({  // updateMany instead of update
         where: {
             customerId,
             status: "ACTIVE",
@@ -15,19 +14,8 @@ export async function markExpiredToken( customerId: string ) {
                 lte: new Date()
             }
         },
-        orderBy: {
-            createdAt: "desc"
+        data: {
+            status: "EXPIRED"
         }
     })
-
-    if (expiredToken) {
-        await prisma.token.update({
-            where: {
-                id: expiredToken.id
-            },
-            data: {
-                status: "EXPIRED"
-            }
-        })
-    }
 }
