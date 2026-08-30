@@ -1,22 +1,58 @@
 # eKYC Application Flows
 
-## 1. Customer Verification
+## API Endpoints Overview
+
+**Consent Management:**
+- `POST /consent` - Submit Aadhaar and consent for verification
+- `GET /consent/customer/:customerId` - Retrieve consent records for a customer
+
+**Token Management:**
+- `POST /token/issuance` - Issue or retrieve active token
+- `POST /token/validate` - Validate token status
+
+---
+
+## 1. Customer Verification & Consent Submission
 
 ### POST /consent
 
 Customer submits Aadhaar and consent. System verifies Aadhaar, creates or finds customer, and records consent.
 
-1. Receive Aadhaar + consent boolean
+**Request Body:**
+```json
+{
+  "aadhaar": "123456789012",
+  "consent": true
+}
+```
+
+**Flow:**
+1. Receive Aadhaar (12-digit string) + consent boolean
 2. Verify Aadhaar via verification service
+   - Mock service validates format (12 digits)
+   - Returns verification result with verificationId
 3. Check if customer exists (by Aadhaar)
 4. If new: Create customer with verified=true, verificationId
 5. If existing: Use existing customer
-6. Create consent record linked to customer
-7. Return consent record (id, customerId, granted, createdAt)
+6. Create consent record linked to customer (status: "Active" by default)
+7. Return consent record
+
+**Response (201):**
+```json
+{
+  "consent": {
+    "id": "uuid",
+    "customerId": "uuid",
+    "granted": true,
+    "status": "Active",
+    "createdAt": "timestamp"
+  }
+}
+```
 
 **Status codes:**
 - 201: Consent created successfully
-- 400: Aadhaar verification failed
+- 400: Aadhaar verification failed (invalid format or verification failure)
 - 500: Server error
 
 ---
@@ -27,11 +63,31 @@ Customer submits Aadhaar and consent. System verifies Aadhaar, creates or finds 
 
 Retrieve all consent records for a customer, newest first.
 
+**URL Parameters:**
+- `customerId` - Customer UUID
+
+**Flow:**
 1. Receive customerId from URL params
 2. Validate customerId is provided and is a string
 3. Query all consent records for that customer
 4. Sort by createdAt descending (newest → oldest)
 5. Return array of consent records
+
+**Response (200):**
+```json
+{
+  "customerId": "uuid",
+  "consentRecords": [
+    {
+      "id": "uuid",
+      "customerId": "uuid",
+      "granted": true,
+      "status": "Active",
+      "createdAt": "timestamp"
+    }
+  ]
+}
+```
 
 **Status codes:**
 - 200: Consent records retrieved
@@ -43,71 +99,186 @@ Retrieve all consent records for a customer, newest first.
 
 ## 3. Token Issuance
 
-### POST /token
+### POST /token/issuance
 
 Issue or retrieve an active token for a customer. Validates customer verification and consent before creating token.
 
+**Request Body:**
+```json
+{
+  "customerId": "uuid"
+}
+```
+
+**Flow:**
 1. Receive customerId
 2. Validate customerId is provided
-3. Find customer with latest consent
+3. Find customer with latest consent (ordered by createdAt desc, take 1)
 4. Check if customer exists
 5. Check if customer is verified (Aadhaar verified)
-6. Extract latest consent (already sorted by recency)
+6. Extract latest consent
 7. Check if consent is granted
-8. Find most recent expired token (expiresAt <= now) and mark as EXPIRED
-   - Sorts by createdAt descending to get the latest expired token
-9. Check for existing active/non-expired token
+8. Call `markExpiredToken()` service to update any expired tokens
+   - Finds all ACTIVE tokens where expiresAt <= now
+   - Updates their status to EXPIRED
+9. Check for existing ACTIVE token with expiresAt > now
 10. If active token exists: Return it (id, expiresAt)
-11. If no active token: Create new token with 1-hour expiration
-12. Return new token (id, expiresAt)
+11. If no active token: Create new token with:
+    - Status: "ACTIVE"
+    - ExpiresAt: now + 1 hour
+    - Linked to customer and latest consent
+12. Return token details
+
+**Response (200) - Existing Token:**
+```json
+{
+  "message": "Active token already exists",
+  "token": "uuid",
+  "expiresAt": "timestamp"
+}
+```
+
+**Response (200) - New Token:**
+```json
+{
+  "message": "Token issued successfully.",
+  "token": "uuid",
+  "expiresAt": "timestamp"
+}
+```
 
 **Status codes:**
-- 200: Token issued/retrieved
+- 200: Token issued/retrieved successfully
 - 400: Validation failed (missing ID, not verified, no consent)
 - 404: Customer not found
 - 500: Server error
 
 ---
 
-## 4. Token Lifecycle (Future Implementation)
+## 4. Token Validation
 
-### ValidateToken
+### POST /token/validate
 
-Verify if a token is valid and not expired.
+Validate if a token is active and not expired. Automatically marks expired tokens.
 
-- Input: token
-- Check if token exists, status is ACTIVE, expiresAt > now
-- Return: valid (boolean), message
+**Request Body:**
+```json
+{
+  "token": "uuid"
+}
+```
 
-### ExpireToken
+**Flow:**
+1. Receive tokenId from request body
+2. Validate tokenId is provided
+3. Find token by ID
+4. Extract customerId from token
+5. Call `markExpiredToken()` service to update expired tokens for this customer
+6. Query for token with matching ID and status "ACTIVE"
+7. If found: Token is valid
+8. If not found: Token is expired, revoked, or doesn't exist
 
-Manually mark a token as EXPIRED.
+**Response (200) - Valid:**
+```json
+{
+  "message": "Active Token exists",
+  "token": {
+    "id": "uuid",
+    "customerId": "uuid",
+    "consentId": "uuid",
+    "status": "ACTIVE",
+    "createdAt": "timestamp",
+    "expiresAt": "timestamp"
+  }
+}
+```
 
-- Input: tokenId
-- Update token status to EXPIRED
-- Return: success message
+**Response (400) - Invalid:**
+```json
+{
+  "message": "Validation failed, ACTIVE Token does not exist."
+}
+```
 
-### RefreshToken
+**Status codes:**
+- 200: Token is valid and active
+- 400: Missing tokenId or token is not active
+- 404: Token not found
+- 500: Server error
 
-Issue a new token if the old one is about to expire.
+---
+
+## 5. Token Service Functions
+
+### markExpiredToken(customerId: string)
+
+Internal service function called during token issuance and validation to automatically expire outdated tokens.
+
+**Purpose:** Maintain token lifecycle by marking expired tokens as "EXPIRED"
+
+**Logic:**
+```typescript
+await prisma.token.updateMany({
+  where: {
+    customerId,
+    status: "ACTIVE",
+    expiresAt: { lte: new Date() }
+  },
+  data: {
+    status: "EXPIRED"
+  }
+})
+```
+
+**Called by:**
+- Token issuance flow (before checking for active tokens)
+- Token validation flow (before validating token status)
+
+---
+
+## 6. Aadhaar Verification Service
+
+### verifyAadhaar(aadhaar: string)
+
+Mock Aadhaar verification service for development/testing.
+
+**Validation Rules:**
+- Must be exactly 12 digits
+- Mock rule: Aadhaar numbers ending in '0' are considered invalid
+
+**Returns:**
+```typescript
+{
+  verified: boolean,
+  verificationId: string,  // Format: VERIFY_{timestamp}_{random}
+  aadhaar: string,
+  timestamp: string,
+  message: string
+}
+```
+
+**Note:** This is a mock service. Production would integrate with actual government Aadhaar verification APIs.
+
+---
+
+## 7. Future Enhancements
+
+### Token Refresh
+Issue a new token when an existing one is about to expire.
 
 - Input: customerId, existing tokenId
 - Check if old token exists and expiresAt - now < refresh_threshold (e.g., 10 minutes)
 - Create new token with fresh 1-hour expiration
 - Return: new tokenId, expiresAt
 
-### RevokeToken
-
+### Token Revocation
 Revoke a token before expiration (user logout).
 
 - Input: tokenId
-- Update token status to REVOKED
+- Update token status to "REVOKED"
 - Return: success message
 
----
-
-## 5. Future Hyperledger Flow
-
+### Hyperledger Integration
 Blockchain integration for immutable consent and token records.
 
 - Store consent records on Hyperledger (immutable audit trail)
@@ -116,12 +287,44 @@ Blockchain integration for immutable consent and token records.
 
 ---
 
-## Database Relations
+## Database Schema
 
+### Customer
+```prisma
+- id: String (UUID, Primary Key)
+- aadhaar: String (Unique)
+- verified: Boolean (default: false)
+- verificationId: String (Unique, nullable)
+- createdAt: DateTime (default: now)
+- Relations: consents[], tokens[]
+```
+
+### Consent
+```prisma
+- id: String (UUID, Primary Key)
+- customerId: String (Foreign Key → Customer.id)
+- granted: Boolean
+- status: String (default: "Active")
+- createdAt: DateTime (default: now)
+- Relations: customer, tokens[]
+```
+
+### Token
+```prisma
+- id: String (UUID, Primary Key)
+- customerId: String (Foreign Key → Customer.id)
+- consentId: String (Foreign Key → Consent.id)
+- status: String (default: "Not-Active")
+- createdAt: DateTime (default: now)
+- expiresAt: DateTime
+- Relations: customer, consent
+```
+
+### Relationships
 ```
 Customer (1) → (many) Consent
 Customer (1) → (many) Token
 Consent (1) → (many) Token
 ```
 
-Each token is linked to a specific consent record, creating an audit trail of which consent granted which token.
+Each token is linked to both a customer and a specific consent record, creating a complete audit trail.
