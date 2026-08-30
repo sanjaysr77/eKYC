@@ -49,33 +49,13 @@ export async function tokenIssuance(req: Request, res: Response) {
             })
         }
 
-        // await markExpiredToken(customerId)
-
-        // const activeToken = await prisma.token.findFirst({
-        //     where: {
-        //         customerId: customerId,
-        //         status: "ACTIVE",
-        //         expiresAt: {
-        //             gt: new Date(),
-        //         }
-        //     },
-        // })
-
-        // if (activeToken) {
-        //     return res.status(200).json({
-        //         message: "Active token already exists",
-        //         token: activeToken.id,
-        //         expiresAt: activeToken.expiresAt
-        //     })
-        // }
-
         const existingToken = await prisma.token.findFirst({
             where: {
                 customerId,
             }
         })
 
-        if(existingToken) {
+        if (existingToken) {
             return res.status(400).json({
                 message: "Token Already Exists. Try Refreshing",
                 token: existingToken.id
@@ -167,71 +147,92 @@ export async function validate(req: Request, res: Response) {
     }
 }
 
-// export async function refresh(req: Request, res: Response) {
-    
-//     try {
-//         const tokenId = req.body.tokenId;
+export async function refresh(req: Request, res: Response) {
 
-//         if(!tokenId){
-//             return res.status(400).json({
-//                 message: "Token ID is not present"
-//             })
-//         }
+    try {
+        const tokenId = req.body.tokenId;
 
-//         // const tokenQuery = await prisma.token.findUnique({
-//         //     where: {
-//         //         id: tokenId
-//         //     }
-//         // })
+        if (!tokenId) {
+            return res.status(400).json({
+                message: "Token ID is not present"
+            })
+        }
 
-//         // if (!tokenQuery) {
-//         //     return res.status(404).json({
-//         //         message: "Token not found"
-//         //     });
-//         // }
+        const tokenQuery = await prisma.token.findUnique({
+            where: {
+                id: tokenId
+            }
+        })
 
-//         // const customerId = tokenQuery.customerId;
+        if (!tokenQuery) {
+            return res.status(404).json({
+                message: "Token not found"
+            });
+        }
 
-//         // await markExpiredToken(customerId)
+        const customerId = tokenQuery.customerId;
 
-//         const existingToken = await prisma.token.findFirst({
-//             where:{
-//                 id: tokenId,
-//             },
-//             include: {
-//                 customer: true,
-//                 consent: true
-//             }
-//         })
+        console.log("customerId", customerId)
 
-//         if(!existingToken){
-//             return res.status(400).json({
-//                 message: "Create a Token"
-//             })
-//         }
+        const consent = await prisma.consent.findFirst({
+            where: {
+                customerId: customerId
+            },
+            orderBy: {
+                createdAt: "desc"
+            }
 
-//         const verification = existingToken.customer.verified;
+        })
+        console.log("consent", consent);
 
-//         if(!verification){
-//             return res.status(400).json({
-//                 message: "Not Verified"
-//             })
-//         }
+        if (!consent) {
+            return res.status(400).json({
+                message: "Consent Id not found"
+            })
+        }
 
-//         const consent = existingToken.consent.granted;
+        if (!consent.granted) {
+            return res.status(403).json({
+                message: "Consent not granted. Cannot refresh token."
+            })
+        }
 
-//         if(!consent){
-//             return res.status(400).json({
-//                 message: "Consent not provided by the client"
-//             })
-//         }
+        const result = await markExpiredToken(customerId)
 
-//         return res.json({
-//             verification,
-//             consent
-//         })
-//     }
-//     catch(error){
+        if (!result) {
+            return res.status(400).json({
+                message: "Active Token Exists"
+            })
+        }
 
-//     }
-// }
+        const expiresAt = new Date();
+
+        expiresAt.setHours(expiresAt.getHours() + 1);
+
+        console.log("Customer ID", customerId)
+        console.log("Consent ID", consent.id)
+
+        const token = await prisma.token.create({
+            data: {
+                customerId: customerId,
+                consentId: consent.id,
+                expiresAt,
+                status: "ACTIVE"
+            }
+        })
+
+        return res.status(201).json({
+            message: "New token issued successfully.",
+            expiresAt: expiresAt,
+            token: token.id
+        })
+
+    }
+    catch (error) {
+        console.error(error)
+        return res.status(500).json({
+            message: "Internal Server Error",
+            error: error
+        })
+    }
+}
