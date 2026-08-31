@@ -92,7 +92,7 @@ export async function tokenIssuance(req: Request, res: Response) {
 export async function validate(req: Request, res: Response) {
 
     try {
-        const tokenId = req.body.token;
+        const tokenId = req.body.tokenId;
 
         if (!tokenId) {
             return res.status(400).json({
@@ -248,6 +248,68 @@ export async function refresh(req: Request, res: Response) {
     }
     catch (error) {
         console.error(error)
+        return res.status(500).json({
+            message: "Internal Server Error",
+            error: error
+        })
+    }
+}
+
+export async function revoke(req: Request, res: Response) {
+
+    try {
+        const tokenId = req.body.tokenId;
+
+        if (!tokenId) {
+            return res.status(400).json({
+                message: "Token ID is not present"
+            })
+        }
+
+        const token = await prisma.token.findUnique({
+            where: {
+                id: tokenId
+            }
+        })
+
+        if (!token) {
+            return res.status(404).json({
+                message: "Token not found"
+            })
+        }
+
+        await markExpiredToken(token.customerId);
+
+        const refreshedToken = await prisma.token.findUnique({
+            where: {
+                id: tokenId
+            }
+        })
+
+        if (refreshedToken!.status !== "ACTIVE") {
+            return res.status(400).json({
+                message: `Token is already ${refreshedToken!.status}`,
+                currentStatus: refreshedToken!.status
+            })
+        }
+
+        await prisma.token.update({
+            where: {
+                id: tokenId
+            },
+            data: {
+                status: "REVOKED"
+            }
+        })
+
+        return res.status(200).json({
+            message: "Token Revoked Successfully",
+            tokenId: tokenId
+        })
+
+    }
+    catch (error) {
+        console.error("Revoke Error", error)
         return res.status(500).json({
             message: "Internal Server Error",
             error: error
