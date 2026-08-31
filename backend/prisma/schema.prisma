@@ -8,6 +8,11 @@ datasource db {
 
 /* In Prisma, customerId is the actual foreign-key column stored in the database. @relation(fields: [customerId], references: [id]) tells Prisma that Consent.customerId points to Customer.id. consents Consent[] does not create a column or table; it is a Prisma relation field that lets you navigate from a Customer to all its related Consent records. So, customerId stores the relationship, while consents Consent[] lets Prisma access the related Consent records from the Customer side. */
 
+/* Customer → has many Consent records (one-to-many)
+Customer → has many Token records (one-to-many)
+Token → belongs to one Consent (many-to-one) */
+
+
 model Customer {
   id              String     @id @default(uuid())
   aadhaar         String     @unique

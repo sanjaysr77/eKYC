@@ -45,7 +45,6 @@ export async function tokenIssuance(req: Request, res: Response) {
         if (!latestConsent || !latestConsent.granted) {
             return res.status(400).json({
                 message: "Consent not granted. Token cannot be generated",
-                latestConsent
             })
         }
 
@@ -91,6 +90,7 @@ export async function tokenIssuance(req: Request, res: Response) {
 }
 
 export async function validate(req: Request, res: Response) {
+
     try {
         const tokenId = req.body.token;
 
@@ -172,7 +172,21 @@ export async function refresh(req: Request, res: Response) {
 
         const customerId = tokenQuery.customerId;
 
-        console.log("customerId", customerId)
+        const customer = await prisma.customer.findUnique({
+            where: { id: customerId }
+        })
+
+        if (!customer) {
+            return res.status(404).json({
+                message: "Customer not found"
+            })
+        }
+
+        if (!customer.verified) {
+            return res.status(400).json({
+                message: "Customer is not verified"
+            })
+        }
 
         const consent = await prisma.consent.findFirst({
             where: {
@@ -183,7 +197,6 @@ export async function refresh(req: Request, res: Response) {
             }
 
         })
-        console.log("consent", consent);
 
         if (!consent) {
             return res.status(400).json({
@@ -197,20 +210,25 @@ export async function refresh(req: Request, res: Response) {
             })
         }
 
-        const result = await markExpiredToken(customerId)
+        await markExpiredToken(customerId)
 
-        if (!result) {
-            return res.status(400).json({
-                message: "Active Token Exists"
+        const existingToken = await prisma.token.findFirst({
+            where: {
+                id: tokenId,
+                status: "ACTIVE"
+            },
+        })
+
+        if (existingToken) {
+            return res.status(200).json({
+                message: "Active Token exists",
+                existingToken
             })
         }
 
         const expiresAt = new Date();
 
         expiresAt.setHours(expiresAt.getHours() + 1);
-
-        console.log("Customer ID", customerId)
-        console.log("Consent ID", consent.id)
 
         const token = await prisma.token.create({
             data: {
