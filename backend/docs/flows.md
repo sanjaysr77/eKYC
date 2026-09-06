@@ -261,22 +261,71 @@ Mock Aadhaar verification service for development/testing.
 
 ---
 
-## 7. Future Enhancements
+## 7. Token Refresh
 
-### Token Refresh
-Issue a new token when an existing one is about to expire.
+### POST /token/refresh
 
-- Input: customerId, existing tokenId
-- Check if old token exists and expiresAt - now < refresh_threshold (e.g., 10 minutes)
-- Create new token with fresh 1-hour expiration
-- Return: new tokenId, expiresAt
+Refresh an existing token or retrieve the active one if still valid.
 
-### Token Revocation
-Revoke a token before expiration (user logout).
+**Request Body:**
+```json
+{
+  "tokenId": "uuid"
+}
+```
 
-- Input: tokenId
-- Update token status to "REVOKED"
-- Return: success message
+**Flow:**
+1. Receive tokenId from request body
+2. Validate tokenId is provided
+3. Find token by ID
+4. Extract customerId and verify customer exists
+5. Check if customer is verified
+6. Find latest consent for customer
+7. Validate consent exists and is granted
+8. Call `markExpiredToken()` service to update expired tokens
+9. Check for existing ACTIVE token
+10. If ACTIVE token exists: Return it with status 200
+11. If no ACTIVE token: Create new token with:
+    - Status: "ACTIVE"
+    - ExpiresAt: now + 1 hour
+    - Linked to customer and latest consent
+12. Return token with status 201
+
+**Response (200) - Existing Active Token:**
+```json
+{
+  "message": "Active Token exists",
+  "existingToken": {
+    "id": "uuid",
+    "customerId": "uuid",
+    "consentId": "uuid",
+    "status": "ACTIVE",
+    "createdAt": "timestamp",
+    "expiresAt": "timestamp"
+  }
+}
+```
+
+**Response (201) - New Token:**
+```json
+{
+  "message": "New token issued successfully.",
+  "token": "uuid",
+  "expiresAt": "timestamp"
+}
+```
+
+**Status codes:**
+- 200: Existing active token returned
+- 201: New token issued successfully
+- 400: Validation failed (missing tokenId, customer not verified, consent not granted)
+- 403: Consent not granted
+- 404: Token not found or customer not found
+- 500: Server error
+
+---
+
+## 8. Future Enhancements
 
 ### Hyperledger Integration
 Blockchain integration for immutable consent and token records.
