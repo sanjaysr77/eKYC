@@ -2,13 +2,13 @@
 
 # ============================================================================
 # CHAINCODE DEPLOYMENT SCRIPT
-# Packages, installs, approves and commits the asset chaincode
+# Packages, installs, approves and commits the KYC token chaincode
 # ============================================================================
 
 set -e
 
 echo "============================================================================"
-echo "🚀 Deploying Asset Chaincode"
+echo "🚀 Deploying KYC Token Chaincode"
 echo "============================================================================"
 
 # Colors
@@ -23,69 +23,136 @@ error_exit() {
     exit 1
 }
 
+# ============================================================================
 # Setup environment
+# ============================================================================
+
 export PATH=${PWD}/../bin:${PATH}
-export FABRIC_CFG_PATH=${PWD}/config
+export FABRIC_CFG_PATH=${PWD}/configtx
 export CORE_PEER_TLS_ENABLED=true
 
 ORDERER_CA=${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
-CHANNEL="mychannel"
-CC_NAME="asset"
+
+CHANNEL="kycTokenChannel"
+
+CC_NAME="kyc-token-cc"
 CC_VERSION="1.0"
 CC_SEQUENCE=1
 CC_LABEL="${CC_NAME}_${CC_VERSION}"
-CC_POLICY="OR('BuyerMSP.peer','SellerMSP.peer')"
 
+CC_POLICY="OR('Org1MSP.peer','Org2MSP.peer','Org3MSP.peer')"
+
+# ============================================================================
 # Function to set peer environment
+# ============================================================================
+
 setPeerEnv() {
+
     local ORG=$1
     local MSP=$2
     local PORT=$3
 
     export CORE_PEER_LOCALMSPID="${MSP}"
+
     export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/${ORG}.example.com/peers/peer0.${ORG}.example.com/tls/ca.crt
+
     export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/${ORG}.example.com/users/Admin@${ORG}.example.com/msp
+
     export CORE_PEER_ADDRESS=localhost:${PORT}
 }
 
+# ============================================================================
 # Step 0: Build TypeScript chaincode
+# ============================================================================
+
 echo -e "${YELLOW}Building TypeScript chaincode...${NC}"
-cd ../../../backend
+
+cd ../backend
+
 npm run build || error_exit "Failed to build chaincode"
+
 cd - > /dev/null
+
 echo -e "${GREEN}  ✓ Chaincode built${NC}"
 
+# ============================================================================
 # Step 1: Package chaincode
-echo -e "${YELLOW}Packaging chaincode...${NC}"
+# ============================================================================
+
+echo -e "${YELLOW}Packaging KYC token chaincode...${NC}"
+
 peer lifecycle chaincode package ${CC_LABEL}.tar.gz \
-    --path ../../../backend/src/chaincode \
+    --path ../backend/src/chaincode \
     --lang node \
-    --label ${CC_LABEL} || error_exit "Failed to package chaincode"
+    --label ${CC_LABEL} \
+    || error_exit "Failed to package chaincode"
+
 echo -e "${GREEN}  ✓ Chaincode packaged${NC}"
 
-# Step 2: Install on buyer peer
-echo -e "${YELLOW}Installing on buyer peer...${NC}"
-setPeerEnv "buyer" "BuyerMSP" "7051"
-peer lifecycle chaincode install ${CC_LABEL}.tar.gz 2>&1 | grep -v "already successfully installed" || true
-echo -e "${GREEN}  ✓ Installed on buyer${NC}"
+# ============================================================================
+# Step 2: Install on Org1 peer
+# ============================================================================
 
-# Step 3: Install on seller peer
-echo -e "${YELLOW}Installing on seller peer...${NC}"
-setPeerEnv "seller" "SellerMSP" "8051"
-peer lifecycle chaincode install ${CC_LABEL}.tar.gz 2>&1 | grep -v "already successfully installed" || true
-echo -e "${GREEN}  ✓ Installed on seller${NC}"
+echo -e "${YELLOW}Installing on Org1 peer...${NC}"
 
-# Step 4: Get package ID
-setPeerEnv "buyer" "BuyerMSP" "7051"
-PACKAGE_ID=$(peer lifecycle chaincode queryinstalled 2>&1 | grep "${CC_LABEL}" | awk -F 'Package ID: ' '{print $2}' | awk -F ', Label' '{print $1}')
+setPeerEnv "org1" "Org1MSP" "7051"
+
+peer lifecycle chaincode install ${CC_LABEL}.tar.gz \
+    || error_exit "Failed to install chaincode on Org1"
+
+echo -e "${GREEN}  ✓ Installed on Org1${NC}"
+
+# ============================================================================
+# Step 3: Install on Org2 peer
+# ============================================================================
+
+echo -e "${YELLOW}Installing on Org2 peer...${NC}"
+
+setPeerEnv "org2" "Org2MSP" "8051"
+
+peer lifecycle chaincode install ${CC_LABEL}.tar.gz \
+    || error_exit "Failed to install chaincode on Org2"
+
+echo -e "${GREEN}  ✓ Installed on Org2${NC}"
+
+# ============================================================================
+# Step 4: Install on Org3 peer
+# ============================================================================
+
+echo -e "${YELLOW}Installing on Org3 peer...${NC}"
+
+setPeerEnv "org3" "Org3MSP" "9051"
+
+peer lifecycle chaincode install ${CC_LABEL}.tar.gz \
+    || error_exit "Failed to install chaincode on Org3"
+
+echo -e "${GREEN}  ✓ Installed on Org3${NC}"
+
+# ============================================================================
+# Step 5: Get package ID
+# ============================================================================
+
+setPeerEnv "org1" "Org1MSP" "7051"
+
+PACKAGE_ID=$(peer lifecycle chaincode queryinstalled 2>&1 |
+    grep "${CC_LABEL}" |
+    awk -F 'Package ID: ' '{print $2}' |
+    awk -F ', Label' '{print $1}')
+
 if [ -z "$PACKAGE_ID" ]; then
     error_exit "Could not find package ID for ${CC_LABEL}"
 fi
+
 echo -e "${BLUE}  Package ID: ${PACKAGE_ID}${NC}"
 
-# Step 5: Approve for buyer
-echo -e "${YELLOW}Approving for buyer...${NC}"
-setPeerEnv "buyer" "BuyerMSP" "7051"
+# ============================================================================
+# Step 6: Approve for Org1
+# ============================================================================
+
+echo -e "${YELLOW}Approving chaincode for Org1...${NC}"
+
+setPeerEnv "org1" "Org1MSP" "7051"
+
 peer lifecycle chaincode approveformyorg \
     -o localhost:7050 \
     --ordererTLSHostnameOverride orderer.example.com \
@@ -96,12 +163,19 @@ peer lifecycle chaincode approveformyorg \
     --sequence $CC_SEQUENCE \
     --signature-policy "$CC_POLICY" \
     --tls \
-    --cafile $ORDERER_CA || error_exit "Failed to approve for buyer"
-echo -e "${GREEN}  ✓ Approved for buyer${NC}"
+    --cafile $ORDERER_CA \
+    || error_exit "Failed to approve for Org1"
 
-# Step 6: Approve for seller
-echo -e "${YELLOW}Approving for seller...${NC}"
-setPeerEnv "seller" "SellerMSP" "8051"
+echo -e "${GREEN}  ✓ Approved for Org1${NC}"
+
+# ============================================================================
+# Step 7: Approve for Org2
+# ============================================================================
+
+echo -e "${YELLOW}Approving chaincode for Org2...${NC}"
+
+setPeerEnv "org2" "Org2MSP" "8051"
+
 peer lifecycle chaincode approveformyorg \
     -o localhost:7050 \
     --ordererTLSHostnameOverride orderer.example.com \
@@ -112,11 +186,42 @@ peer lifecycle chaincode approveformyorg \
     --sequence $CC_SEQUENCE \
     --signature-policy "$CC_POLICY" \
     --tls \
-    --cafile $ORDERER_CA || error_exit "Failed to approve for seller"
-echo -e "${GREEN}  ✓ Approved for seller${NC}"
+    --cafile $ORDERER_CA \
+    || error_exit "Failed to approve for Org2"
 
-# Step 7: Check commit readiness
+echo -e "${GREEN}  ✓ Approved for Org2${NC}"
+
+# ============================================================================
+# Step 8: Approve for Org3
+# ============================================================================
+
+echo -e "${YELLOW}Approving chaincode for Org3...${NC}"
+
+setPeerEnv "org3" "Org3MSP" "9051"
+
+peer lifecycle chaincode approveformyorg \
+    -o localhost:7050 \
+    --ordererTLSHostnameOverride orderer.example.com \
+    --channelID $CHANNEL \
+    --name $CC_NAME \
+    --version $CC_VERSION \
+    --package-id $PACKAGE_ID \
+    --sequence $CC_SEQUENCE \
+    --signature-policy "$CC_POLICY" \
+    --tls \
+    --cafile $ORDERER_CA \
+    || error_exit "Failed to approve for Org3"
+
+echo -e "${GREEN}  ✓ Approved for Org3${NC}"
+
+# ============================================================================
+# Step 9: Check commit readiness
+# ============================================================================
+
 echo -e "${YELLOW}Checking commit readiness...${NC}"
+
+setPeerEnv "org1" "Org1MSP" "7051"
+
 peer lifecycle chaincode checkcommitreadiness \
     --channelID $CHANNEL \
     --name $CC_NAME \
@@ -129,9 +234,14 @@ peer lifecycle chaincode checkcommitreadiness \
     --ordererTLSHostnameOverride orderer.example.com \
     --output json
 
-# Step 8: Commit chaincode
-echo -e "${YELLOW}Committing chaincode...${NC}"
-setPeerEnv "buyer" "BuyerMSP" "7051"
+# ============================================================================
+# Step 10: Commit chaincode
+# ============================================================================
+
+echo -e "${YELLOW}Committing KYC token chaincode...${NC}"
+
+setPeerEnv "org1" "Org1MSP" "7051"
+
 peer lifecycle chaincode commit \
     -o localhost:7050 \
     --ordererTLSHostnameOverride orderer.example.com \
@@ -143,13 +253,17 @@ peer lifecycle chaincode commit \
     --tls \
     --cafile $ORDERER_CA \
     --peerAddresses localhost:7051 \
-    --tlsRootCertFiles ${PWD}/organizations/peerOrganizations/buyer.example.com/peers/peer0.buyer.example.com/tls/ca.crt \
+    --tlsRootCertFiles ${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt \
     --peerAddresses localhost:8051 \
-    --tlsRootCertFiles ${PWD}/organizations/peerOrganizations/seller.example.com/peers/peer0.seller.example.com/tls/ca.crt \
+    --tlsRootCertFiles ${PWD}/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt \
+    --peerAddresses localhost:9051 \
+    --tlsRootCertFiles ${PWD}/organizations/peerOrganizations/org3.example.com/peers/peer0.org3.example.com/tls/ca.crt \
     || error_exit "Failed to commit chaincode"
+
 echo -e "${GREEN}  ✓ Chaincode committed${NC}"
 
 echo ""
+
 echo -e "${GREEN}============================================================================${NC}"
-echo -e "${GREEN}✅ Asset chaincode deployed successfully on mychannel!${NC}"
+echo -e "${GREEN}✅ KYC token chaincode deployed successfully on ${CHANNEL}!${NC}"
 echo -e "${GREEN}============================================================================${NC}"
