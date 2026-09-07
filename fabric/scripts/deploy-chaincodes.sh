@@ -27,13 +27,23 @@ error_exit() {
 # Setup environment
 # ============================================================================
 
-export PATH=${PWD}/../bin:${PATH}
-export FABRIC_CFG_PATH=${PWD}/configtx
+# Determine script directory and project root
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
+
 export CORE_PEER_TLS_ENABLED=true
 
-ORDERER_CA=${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+# Add fabric-samples/bin to PATH if it exists, otherwise assume binaries are in system PATH
+if [ -d "${PROJECT_ROOT}/../bin" ]; then
+    export PATH=${PROJECT_ROOT}/../bin:${PATH}
+fi
 
-CHANNEL="kycTokenChannel"
+# Change to project root for relative path references
+cd "$PROJECT_ROOT"
+
+ORDERER_CA=${PROJECT_ROOT}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+
+CHANNEL="kyctokenchannel"
 
 CC_NAME="kyc-token-cc"
 CC_VERSION="1.0"
@@ -54,11 +64,13 @@ setPeerEnv() {
 
     export CORE_PEER_LOCALMSPID="${MSP}"
 
-    export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/${ORG}.example.com/peers/peer0.${ORG}.example.com/tls/ca.crt
+    export CORE_PEER_TLS_ROOTCERT_FILE=${PROJECT_ROOT}/organizations/peerOrganizations/${ORG}.example.com/peers/peer0.${ORG}.example.com/tls/ca.crt
 
-    export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/${ORG}.example.com/users/Admin@${ORG}.example.com/msp
+    export CORE_PEER_MSPCONFIGPATH=${PROJECT_ROOT}/organizations/peerOrganizations/${ORG}.example.com/users/Admin@${ORG}.example.com/msp
 
     export CORE_PEER_ADDRESS=localhost:${PORT}
+    
+    export FABRIC_CFG_PATH=${PROJECT_ROOT}/config
 }
 
 # ============================================================================
@@ -71,7 +83,7 @@ cd ../backend
 
 npm run build || error_exit "Failed to build chaincode"
 
-cd - > /dev/null
+cd "$PROJECT_ROOT" > /dev/null
 
 echo -e "${GREEN}  ✓ Chaincode built${NC}"
 
@@ -82,7 +94,7 @@ echo -e "${GREEN}  ✓ Chaincode built${NC}"
 echo -e "${YELLOW}Packaging KYC token chaincode...${NC}"
 
 peer lifecycle chaincode package ${CC_LABEL}.tar.gz \
-    --path ../backend/src/chaincode \
+    --path ${PROJECT_ROOT}/backend/src/chaincode \
     --lang node \
     --label ${CC_LABEL} \
     || error_exit "Failed to package chaincode"
@@ -253,11 +265,11 @@ peer lifecycle chaincode commit \
     --tls \
     --cafile $ORDERER_CA \
     --peerAddresses localhost:7051 \
-    --tlsRootCertFiles ${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt \
+    --tlsRootCertFiles ${PROJECT_ROOT}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt \
     --peerAddresses localhost:8051 \
-    --tlsRootCertFiles ${PWD}/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt \
+    --tlsRootCertFiles ${PROJECT_ROOT}/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt \
     --peerAddresses localhost:9051 \
-    --tlsRootCertFiles ${PWD}/organizations/peerOrganizations/org3.example.com/peers/peer0.org3.example.com/tls/ca.crt \
+    --tlsRootCertFiles ${PROJECT_ROOT}/organizations/peerOrganizations/org3.example.com/peers/peer0.org3.example.com/tls/ca.crt \
     || error_exit "Failed to commit chaincode"
 
 echo -e "${GREEN}  ✓ Chaincode committed${NC}"

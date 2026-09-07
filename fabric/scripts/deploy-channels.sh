@@ -27,9 +27,20 @@ error_exit() {
 # Setup environment
 # ============================================================================
 
-export PATH=${PWD}/../bin:${PATH}
-export FABRIC_CFG_PATH=${PWD}/configtx
+# Determine script directory and project root
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
+
+export FABRIC_CFG_PATH=${PROJECT_ROOT}/configtx
 export CORE_PEER_TLS_ENABLED=true
+
+# Add fabric-samples/bin to PATH if it exists, otherwise assume binaries are in system PATH
+if [ -d "${PROJECT_ROOT}/../bin" ]; then
+    export PATH=${PROJECT_ROOT}/../bin:${PATH}
+fi
+
+# Change to project root for relative path references
+cd "$PROJECT_ROOT"
 
 # ============================================================================
 # Verify required binaries
@@ -55,11 +66,11 @@ joinOrderer() {
 
     OUTPUT=$(osnadmin channel join \
         --channelID $CHANNEL \
-        --config-block ./channel-artifacts/${CHANNEL}.block \
+        --config-block ${PROJECT_ROOT}/channel-artifacts/${CHANNEL}.block \
         -o localhost:7053 \
-        --ca-file ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem \
-        --client-cert ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls/server.crt \
-        --client-key ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls/server.key \
+        --ca-file ${PROJECT_ROOT}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem \
+        --client-cert ${PROJECT_ROOT}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls/server.crt \
+        --client-key ${PROJECT_ROOT}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls/server.key \
         2>&1)
 
     if echo "$OUTPUT" | grep -q "Status: 201"; then
@@ -89,11 +100,13 @@ setPeerEnv() {
 
     export CORE_PEER_LOCALMSPID="${MSP}"
 
-    export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/${ORG}.example.com/peers/peer0.${ORG}.example.com/tls/ca.crt
+    export CORE_PEER_TLS_ROOTCERT_FILE=${PROJECT_ROOT}/organizations/peerOrganizations/${ORG}.example.com/peers/peer0.${ORG}.example.com/tls/ca.crt
 
-    export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/${ORG}.example.com/users/Admin@${ORG}.example.com/msp
+    export CORE_PEER_MSPCONFIGPATH=${PROJECT_ROOT}/organizations/peerOrganizations/${ORG}.example.com/users/Admin@${ORG}.example.com/msp
 
     export CORE_PEER_ADDRESS=localhost:${PORT}
+    
+    export FABRIC_CFG_PATH=${PROJECT_ROOT}/config
 }
 
 # ============================================================================
@@ -108,7 +121,7 @@ joinPeer() {
     local OUTPUT
 
     OUTPUT=$(peer channel join \
-        -b ./channel-artifacts/${CHANNEL}.block \
+        -b ${PROJECT_ROOT}/channel-artifacts/${CHANNEL}.block \
         2>&1)
 
     if echo "$OUTPUT" | grep -q "Successfully submitted proposal to join channel"; then
@@ -130,14 +143,14 @@ joinPeer() {
 # Generate channel block
 # ============================================================================
 
-CHANNEL="kycTokenChannel"
+CHANNEL="kyctokenchannel"
 
 echo -e "${YELLOW}Creating ${CHANNEL}...${NC}"
 
-if ! FABRIC_CFG_PATH=${PWD}/configtx configtxgen \
-    -profile kycTokenChannel \
+if ! FABRIC_CFG_PATH=${PROJECT_ROOT}/configtx configtxgen \
+    -profile kyctokenchannel \
     -outputBlock ./channel-artifacts/${CHANNEL}.block \
-    -channelID ${CHANNEL} > /dev/null 2>&1; then
+    -channelID ${CHANNEL} 2>&1; then
 
     error_exit "Failed to generate genesis block for ${CHANNEL}"
 fi
