@@ -12,6 +12,10 @@ datasource db {
 Customer → has many Token records (one-to-many)
 Token → belongs to one Consent (many-to-one) */
 
+enum ConsentStatus {
+  GIVEN
+  WITHDRAWN
+}
 
 model Customer {
   id              String     @id @default(uuid())
@@ -27,14 +31,15 @@ model Customer {
 model Consent {
   id         String      @id @default(uuid())
   customerId String
-  granted    Boolean
-  status     String      @default("Active")
+  status     ConsentStatus
   createdAt  DateTime    @default(now())
 
   customer   Customer    @relation(fields: [customerId], references: [id])
 
   tokens   Token[]
 }
+
+// change status to enum later
 
 model Token {
   id         String      @id @default(uuid())

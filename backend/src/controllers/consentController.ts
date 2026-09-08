@@ -39,7 +39,7 @@ export async function submitConsent(req: Request, res: Response) {
     const consentRecord = await prisma.consent.create({
       data: {
         customerId: customer.id,
-        granted: consent
+        status: consent
       }
     });
 

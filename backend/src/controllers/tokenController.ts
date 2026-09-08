@@ -42,7 +42,7 @@ export async function tokenIssuance(req: Request, res: Response) {
 
         const latestConsent = customer.consents[0];
 
-        if (!latestConsent || !latestConsent.granted) {
+        if (!latestConsent || !latestConsent.status) {
             return res.status(400).json({
                 message: "Consent not granted. Token cannot be generated",
             })
@@ -204,7 +204,7 @@ export async function refresh(req: Request, res: Response) {
             })
         }
 
-        if (!consent.granted) {
+        if (consent.status !== "GIVEN") {
             return res.status(403).json({
                 message: "Consent not granted. Cannot refresh token."
             })
