@@ -25,6 +25,8 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 cd "${PROJECT_ROOT}"
 
+# Unset any inherited FABRIC_CFG_PATH from network.sh and set correctly
+unset FABRIC_CFG_PATH
 export PATH="${PROJECT_ROOT}/../bin:${PATH}"
 export FABRIC_CFG_PATH="${PROJECT_ROOT}/config"
 export CORE_PEER_TLS_ENABLED=true

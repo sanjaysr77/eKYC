@@ -41,6 +41,9 @@ fi
 # Change to project root for relative path references
 cd "$PROJECT_ROOT"
 
+# Ensure correct FABRIC_CFG_PATH is set
+export FABRIC_CFG_PATH=${PROJECT_ROOT}/config
+
 ORDERER_CA=${PROJECT_ROOT}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
 
 CHANNEL="kyctokenchannel"
@@ -49,8 +52,6 @@ CC_NAME="kyc-token-cc"
 CC_VERSION="1.0"
 CC_SEQUENCE=1
 CC_LABEL="${CC_NAME}_${CC_VERSION}"
-
-CC_POLICY="OR('Org1MSP.peer','Org2MSP.peer','Org3MSP.peer')"
 
 # ============================================================================
 # Function to set peer environment
@@ -79,7 +80,7 @@ setPeerEnv() {
 
 echo -e "${YELLOW}Building TypeScript chaincode...${NC}"
 
-cd ../backend
+cd ${PROJECT_ROOT}/chaincode
 
 npm run build || error_exit "Failed to build chaincode"
 
@@ -94,7 +95,7 @@ echo -e "${GREEN}  ✓ Chaincode built${NC}"
 echo -e "${YELLOW}Packaging KYC token chaincode...${NC}"
 
 peer lifecycle chaincode package ${CC_LABEL}.tar.gz \
-    --path ${PROJECT_ROOT}/fabric/chaincode \
+    --path ${PROJECT_ROOT}/chaincode \
     --lang node \
     --label ${CC_LABEL} \
     || error_exit "Failed to package chaincode"
@@ -140,6 +141,10 @@ peer lifecycle chaincode install ${CC_LABEL}.tar.gz \
 
 echo -e "${GREEN}  ✓ Installed on Org3${NC}"
 
+# Wait for peers to stabilize after installations
+echo -e "${YELLOW}Waiting for peers to stabilize...${NC}"
+sleep 5
+
 # ============================================================================
 # Step 5: Get package ID
 # ============================================================================
@@ -173,7 +178,6 @@ peer lifecycle chaincode approveformyorg \
     --version $CC_VERSION \
     --package-id $PACKAGE_ID \
     --sequence $CC_SEQUENCE \
-    --signature-policy "$CC_POLICY" \
     --tls \
     --cafile $ORDERER_CA \
     || error_exit "Failed to approve for Org1"
@@ -196,7 +200,6 @@ peer lifecycle chaincode approveformyorg \
     --version $CC_VERSION \
     --package-id $PACKAGE_ID \
     --sequence $CC_SEQUENCE \
-    --signature-policy "$CC_POLICY" \
     --tls \
     --cafile $ORDERER_CA \
     || error_exit "Failed to approve for Org2"
@@ -219,7 +222,6 @@ peer lifecycle chaincode approveformyorg \
     --version $CC_VERSION \
     --package-id $PACKAGE_ID \
     --sequence $CC_SEQUENCE \
-    --signature-policy "$CC_POLICY" \
     --tls \
     --cafile $ORDERER_CA \
     || error_exit "Failed to approve for Org3"
@@ -239,7 +241,6 @@ peer lifecycle chaincode checkcommitreadiness \
     --name $CC_NAME \
     --version $CC_VERSION \
     --sequence $CC_SEQUENCE \
-    --signature-policy "$CC_POLICY" \
     --tls \
     --cafile $ORDERER_CA \
     -o localhost:7050 \
@@ -261,7 +262,6 @@ peer lifecycle chaincode commit \
     --name $CC_NAME \
     --version $CC_VERSION \
     --sequence $CC_SEQUENCE \
-    --signature-policy "$CC_POLICY" \
     --tls \
     --cafile $ORDERER_CA \
     --peerAddresses localhost:7051 \

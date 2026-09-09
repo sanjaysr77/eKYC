@@ -197,7 +197,7 @@ function startNetworkContainers() {
   fi
 
   infoln "Waiting for network to be ready..."
-  sleep 15
+  sleep 30
 
   local ORDERER_COUNT=$(docker ps | grep "orderer\." | wc -l)
   local PEER_COUNT=$(docker ps | grep "peer0\." | wc -l)
@@ -406,10 +406,6 @@ function showNetworkStatus() {
     echo ""
     infoln "  Channel:    kycTokenChannel"
     infoln "  Orgs:       Org1 + Org2 + Org3"
-    echo ""
-    infoln "Start the gateway:"
-    infoln "  cd gateway-app && node server.js"
-    infoln "  API: http://localhost:3000"
     echo ""
   fi
 }
