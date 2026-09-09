@@ -94,7 +94,7 @@ echo -e "${GREEN}  ✓ Chaincode built${NC}"
 echo -e "${YELLOW}Packaging KYC token chaincode...${NC}"
 
 peer lifecycle chaincode package ${CC_LABEL}.tar.gz \
-    --path ${PROJECT_ROOT}/backend/src/chaincode \
+    --path ${PROJECT_ROOT}/fabric/chaincode \
     --lang node \
     --label ${CC_LABEL} \
     || error_exit "Failed to package chaincode"
