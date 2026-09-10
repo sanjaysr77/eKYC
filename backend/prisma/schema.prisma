@@ -35,7 +35,6 @@ model Consent {
   createdAt  DateTime    @default(now())
 
   customer   Customer    @relation(fields: [customerId], references: [id])
-
   tokens   Token[]
 }
 

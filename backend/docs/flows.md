@@ -325,7 +325,51 @@ Refresh an existing token or retrieve the active one if still valid.
 
 ---
 
-## 8. Future Enhancements
+## 9. Token Revocation
+
+### POST /token/revoke
+
+Revoke an active token, marking it as "REVOKED" to prevent further use.
+
+**Request Body:**
+```json
+{
+  "tokenId": "uuid"
+}
+```
+
+**Flow:**
+1. Receive tokenId from request body
+2. Validate tokenId is provided
+3. Find token by ID
+4. Check if token exists
+5. Update token status to "REVOKED"
+6. Return success response with revoked token details
+
+**Response (200) - Success:**
+```json
+{
+  "message": "Token revoked successfully",
+  "token": {
+    "id": "uuid",
+    "customerId": "uuid",
+    "consentId": "uuid",
+    "status": "REVOKED",
+    "createdAt": "timestamp",
+    "expiresAt": "timestamp"
+  }
+}
+```
+
+**Status codes:**
+- 200: Token revoked successfully
+- 400: Missing tokenId
+- 404: Token not found
+- 500: Server error
+
+---
+
+## 10. Future Enhancements
 
 ### Hyperledger Integration
 Blockchain integration for immutable consent and token records.
