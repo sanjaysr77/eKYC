@@ -1,5 +1,5 @@
 
-import { Contract, Context, Info, Transaction} from  "fabric-contract-api"
+import { Contract, Context, Info, Transaction } from "fabric-contract-api"
 
 @Info({
     title: "eKYC Token Contract",
@@ -10,22 +10,17 @@ import { Contract, Context, Info, Transaction} from  "fabric-contract-api"
 export class EKYCContract extends Contract {
 
     @Transaction()
-    async RecordConsent(
-        ctx: Context,
-        consentId: string,
-        customerId: string,
-        status: string
-    ): Promise<void> {
+    async RecordConsent(ctx: Context, consentId: string, customerId: string, status: string): Promise<void> {
 
-        if(!consentId){
+        if (!consentId) {
             throw new Error("consentId is required")
         }
 
-        if(!customerId){
+        if (!customerId) {
             throw new Error("customerId is required")
         }
 
-        if(status !== "GIVEN"){
+        if (status !== "GIVEN") {
             throw new Error("Consent status must be GIVEN")
         }
 
