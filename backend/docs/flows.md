@@ -12,6 +12,36 @@
 
 ---
 
+## Consent Status Enum
+
+The Consent model uses an enum for status instead of a string or boolean:
+
+**Valid Values:**
+- `GIVEN` - Consent has been granted by customer
+- `WITHDRAWN` - Consent has been revoked by customer
+
+This ensures type safety and prevents invalid status values from being stored.
+
+---
+
+## Token Status Values
+
+The Token model supports multiple status states throughout its lifecycle:
+
+**Valid Token Statuses:**
+- `ACTIVE` - Token is valid and can be used (default when newly created)
+- `EXPIRED` - Token's expiration time has passed (auto-marked by `markExpiredToken()`)
+- `REVOKED` - Token has been explicitly revoked by user/system
+- `Not-Active` - Legacy status (initial default, rarely used after first creation)
+
+**Status Transitions:**
+```
+ACTIVE → EXPIRED (automatic, when expiresAt <= now)
+ACTIVE → REVOKED (manual, via /token/revoke endpoint)
+```
+
+---
+
 ## 1. Customer Verification & Consent Submission
 
 ### POST /consent
@@ -81,13 +111,14 @@ Retrieve all consent records for a customer, newest first.
     {
       "id": "uuid",
       "customerId": "uuid",
-      "granted": true,
-      "status": "Active",
+      "status": "GIVEN",
       "createdAt": "timestamp"
     }
   ]
 }
 ```
+
+**Note:** Status field uses enum values (`GIVEN` or `WITHDRAWN`), not string values.
 
 **Status codes:**
 - 200: Consent records retrieved
@@ -343,27 +374,35 @@ Revoke an active token, marking it as "REVOKED" to prevent further use.
 2. Validate tokenId is provided
 3. Find token by ID
 4. Check if token exists
-5. Update token status to "REVOKED"
-6. Return success response with revoked token details
+5. Call `markExpiredToken()` service to update any expired tokens for this customer
+   - This ensures we have the most current token status before checking if it's ACTIVE
+6. Retrieve the updated token to check its current status
+7. If token status is not "ACTIVE", return error with currentStatus
+   - Cannot revoke a token that's already EXPIRED or REVOKED
+8. If token is ACTIVE, update status to "REVOKED"
+9. Return success response
 
 **Response (200) - Success:**
 ```json
 {
-  "message": "Token revoked successfully",
-  "token": {
-    "id": "uuid",
-    "customerId": "uuid",
-    "consentId": "uuid",
-    "status": "REVOKED",
-    "createdAt": "timestamp",
-    "expiresAt": "timestamp"
-  }
+  "message": "Token Revoked Successfully",
+  "tokenId": "uuid"
 }
 ```
 
+**Response (400) - Token Not Active:**
+```json
+{
+  "message": "Token is already EXPIRED",
+  "currentStatus": "EXPIRED"
+}
+```
+
+**Note:** The `markExpiredToken()` service is called before checking token status to ensure expired tokens are updated first. This prevents attempting to revoke a token that has already expired naturally.
+
 **Status codes:**
 - 200: Token revoked successfully
-- 400: Missing tokenId
+- 400: Missing tokenId or token is not ACTIVE (already EXPIRED/REVOKED)
 - 404: Token not found
 - 500: Server error
 
