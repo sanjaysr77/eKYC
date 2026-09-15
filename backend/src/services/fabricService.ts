@@ -6,6 +6,7 @@ import {
 } from "@hyperledger/fabric-gateway";
 
 import * as grpc from "@grpc/grpc-js";
+import { signers } from "@hyperledger/fabric-gateway";
 import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -59,7 +60,11 @@ async function createGateway(): Promise<{
 
   const client = new grpc.Client(
     "localhost:7051",
-    grpc.credentials.createSsl(tlsRootCert)
+    grpc.credentials.createSsl(tlsRootCert),
+    {
+      "grpc.ssl_target_name_override": "peer0.org1.example.com",
+      "grpc.default_authority": "peer0.org1.example.com",
+    }
   );
 
   const gateway = connect({
@@ -70,14 +75,7 @@ async function createGateway(): Promise<{
       credentials: certificate,
     },
 
-    signer: async (digest: Uint8Array) => {
-      const sign = crypto.createSign("SHA256");
-
-      sign.update(digest);
-      sign.end();
-
-      return sign.sign(privateKey);
-    },
+    signer: signers.newPrivateKeySigner(privateKey),
 
     evaluateOptions: () => ({
       deadline: Date.now() + 5000,
