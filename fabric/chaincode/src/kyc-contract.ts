@@ -1,4 +1,3 @@
-
 import { Contract, Context, Info, Transaction } from "fabric-contract-api"
 
 @Info({
@@ -10,7 +9,7 @@ import { Contract, Context, Info, Transaction } from "fabric-contract-api"
 export class EKYCContract extends Contract {
 
     @Transaction()
-    async RecordConsent(ctx: Context, consentId: string, customerId: string, status: string): Promise<void> {
+    async RecordConsent( ctx: Context, consentId: string, customerId: string, status: string): Promise<void> {
 
         if (!consentId) {
             throw new Error("consentId is required")
@@ -35,5 +34,24 @@ export class EKYCContract extends Contract {
             consentId,
             Buffer.from(JSON.stringify(consent))
         );
+    }
+
+    @Transaction(false)
+    async GetConsent(
+        ctx: Context,
+        consentId: string
+    ): Promise<string> {
+
+        if (!consentId) {
+            throw new Error("consentId is required")
+        }
+
+        const consentBytes = await ctx.stub.getState(consentId)
+
+        if (!consentBytes || consentBytes.length === 0) {
+            throw new Error(`Consent ${consentId} does not exist`)
+        }
+
+        return consentBytes.toString()
     }
 }
