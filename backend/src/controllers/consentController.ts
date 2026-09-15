@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client/index"
 import { PrismaPg } from '@prisma/adapter-pg'
 import { type Request, type Response } from "express"
 import { verifyAadhaar } from "../services/aadhaarVerificationService.js"
+import { recordConsentOnFabric } from '../services/fabricService.js'
 
 const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 const prisma = new PrismaClient({ adapter: pool })
@@ -43,8 +44,9 @@ export async function submitConsent(req: Request, res: Response) {
       }
     });
 
-    return res.status(201).json({ consent: consentRecord });
+    await recordConsentOnFabric(consentRecord.id, customer.id);
 
+    return res.status(201).json({ consent: consentRecord });
   } catch (err) {
     console.error("Server Error", err);
 
