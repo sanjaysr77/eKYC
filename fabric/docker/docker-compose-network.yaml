@@ -92,6 +92,7 @@ services:
     volumes:
       - /var/run/docker.sock:/host/var/run/docker.sock
       - ../organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com:/etc/hyperledger/fabric
+      - ../organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls:/etc/hyperledger/orderer/tls:ro
       - ../config/core.yaml:/etc/hyperledger/peercfg/core.yaml
       - peer0.org1.example.com:/var/hyperledger/production
     working_dir: /root
@@ -140,6 +141,7 @@ services:
     volumes:
       - /var/run/docker.sock:/host/var/run/docker.sock
       - ../organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com:/etc/hyperledger/fabric
+      - ../organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls:/etc/hyperledger/orderer/tls:ro
       - ../config/core.yaml:/etc/hyperledger/peercfg/core.yaml
       - peer0.org2.example.com:/var/hyperledger/production
     working_dir: /root
@@ -188,6 +190,7 @@ services:
     volumes:
       - /var/run/docker.sock:/host/var/run/docker.sock
       - ../organizations/peerOrganizations/org3.example.com/peers/peer0.org3.example.com:/etc/hyperledger/fabric
+      - ../organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls:/etc/hyperledger/orderer/tls:ro
       - ../config/core.yaml:/etc/hyperledger/peercfg/core.yaml
       - peer0.org3.example.com:/var/hyperledger/production
     working_dir: /root

@@ -46,8 +46,7 @@ docker exec \
   -n "$CHAINCODE" \
   -c "{\"function\":\"$FUNCTION\",\"Args\":$ARGS_JSON}" \
   --tls \
-  --cafile /etc/hyperledger/fabric/tls/ca.crt \
   -o orderer.example.com:7050 \
   --ordererTLSHostnameOverride orderer.example.com \
-  --tlsRootCertFiles /etc/hyperledger/fabric/tls/ca.crt 2>&1 | grep -v "Failed loading\|WARN"
+  --tlsRootCertFiles /etc/hyperledger/orderer/tls/ca.crt 2>&1 | grep -v "Failed loading\|WARN"
 

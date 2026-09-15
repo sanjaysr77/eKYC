@@ -49,8 +49,8 @@ ORDERER_CA=${PROJECT_ROOT}/organizations/ordererOrganizations/example.com/ordere
 CHANNEL="kyctokenchannel"
 
 CC_NAME="kyc-token-cc"
-CC_VERSION="1.0"
-CC_SEQUENCE=1
+CC_VERSION="1.1"
+CC_SEQUENCE=2
 CC_LABEL="${CC_NAME}_${CC_VERSION}"
 
 # ============================================================================
