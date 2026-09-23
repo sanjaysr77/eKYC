@@ -124,3 +124,28 @@ export async function recordConsentOnFabric(
     gateway.close();
   }
 }
+
+export async function issueTokenOnFabric(
+  tokenId: string,
+  customerId: string,
+  consentId: string,
+  recordHash: string,
+  expiresAt: string
+): Promise<string> {
+  const { gateway, contract } = await createGateway();
+
+  try {
+    const result = await contract.submitTransaction(
+      "IssueToken",
+      tokenId,
+      customerId,
+      consentId,
+      recordHash,
+      expiresAt
+    );
+
+    return result.toString();
+  } finally {
+    gateway.close();
+  }
+}
