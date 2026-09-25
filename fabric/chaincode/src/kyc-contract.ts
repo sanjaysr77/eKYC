@@ -57,11 +57,21 @@ export class EKYCContract extends Contract {
 
     @Transaction()
     async IssueToken(
-        ctx: Context, tokenId: string, customerId: string, consentId: string, recordHash: string, expiresAt: string
+        ctx: Context,
+        tokenId: string,
+        userRef: string,
+        customerId: string,
+        consentId: string,
+        recordHash: string,
+        expiresAt: string
     ): Promise<void> {
 
         if (!tokenId) {
             throw new Error("tokenId is required")
+        }
+
+        if (!userRef) {
+            throw new Error("userRef is required")
         }
 
         if (!customerId) {
@@ -86,19 +96,27 @@ export class EKYCContract extends Contract {
             throw new Error(`Consent ${consentId} does not exist`)
         }
 
-        const consent = JSON.parse(consentBytes.toString());
+        const consent = JSON.parse(consentBytes.toString())
 
         if (consent.status !== "GIVEN") {
             throw new Error("Consent is not granted")
         }
 
-        const existingToken = await ctx.stub.getState(tokenId);
+        const existingToken = await ctx.stub.getState(tokenId)
 
         if (existingToken && existingToken.length > 0) {
             throw new Error(`Token ${tokenId} already exists`)
         }
 
-        const token = { tokenId, customerId, consentId, recordHash, status: "ACTIVE", expiresAt }
+        const token = {
+            tokenId,
+            userRef,
+            customerId,
+            consentId,
+            recordHash,
+            status: "ACTIVE",
+            expiresAt
+        }
 
         await ctx.stub.putState(
             tokenId,

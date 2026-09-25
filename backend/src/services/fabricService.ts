@@ -127,6 +127,7 @@ export async function recordConsentOnFabric(
 
 export async function issueTokenOnFabric(
   tokenId: string,
+  userRef: string,
   customerId: string,
   consentId: string,
   recordHash: string,
@@ -138,10 +139,11 @@ export async function issueTokenOnFabric(
     const result = await contract.submitTransaction(
       "IssueToken",
       tokenId,
+      userRef,
       customerId,
       consentId,
       recordHash,
-      expiresAt
+      expiresAt,
     );
 
     return result.toString();
