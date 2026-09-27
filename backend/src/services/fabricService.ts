@@ -151,3 +151,20 @@ export async function issueTokenOnFabric(
     gateway.close();
   }
 }
+
+export async function validateTokenOnFabric(
+  tokenId: string
+): Promise<string> {
+  const { gateway, contract } = await createGateway();
+
+  try {
+    const result = await contract.evaluateTransaction(
+      "ValidateToken",
+      tokenId
+    );
+
+    return result.toString();
+  } finally {
+    gateway.close();
+  }
+}

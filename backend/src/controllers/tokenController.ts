@@ -6,6 +6,7 @@ import { createUserRef, createRecordHash } from "../services/kycHashService.js";
 import { issueTokenOnFabric } from "../services/fabricService.js";
 import { type Request, type Response } from "express"
 import { markExpiredToken } from '../services/tokenService.js'
+import { validateTokenOnFabric } from "../services/fabricService.js";
 
 const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 const prisma = new PrismaClient({ adapter: pool })
@@ -117,60 +118,42 @@ export async function tokenIssuance(req: Request, res: Response) {
 }
 
 export async function validate(req: Request, res: Response) {
-
     try {
         const tokenId = req.body.tokenId;
 
         if (!tokenId) {
             return res.status(400).json({
                 message: "Token Id is not present"
-            })
+            });
         }
 
-        const tokenQuery = await prisma.token.findUnique({
-            where: {
-                id: tokenId
-            }
-        })
+        const token = await prisma.token.findUnique({
+            where: { id: tokenId }
+        });
 
-        if (!tokenQuery) {
+        if (!token) {
             return res.status(404).json({
                 message: "Token not found"
             });
         }
 
-        const customerId = tokenQuery.customerId;
+        const validationResult = await validateTokenOnFabric(tokenId);
 
-        await markExpiredToken(customerId)
+        const validation = JSON.parse(validationResult);
 
-        const token = await prisma.token.findFirst({
-            where: {
-                id: tokenId,
-                status: "ACTIVE"
-            },
-        })
+        return res.status(200).json({
+            message: "Token is valid",
+            validation
+        });
 
-        if (token) {
-            return res.status(200).json({
-                message: "Active Token exists",
-                token
-            })
-        }
-
-        else {
-            return res.status(400).json({
-                message: "Validation failed, ACTIVE Token does not exist."
-            })
-        }
-
-    }
-
-    catch (error) {
+    } catch (error) {
         console.error("Validation Error:", error);
 
-        return res.status(500).json({
-            message: "Internal Server Error"
-        })
+        return res.status(400).json({
+            message: error instanceof Error
+                ? error.message
+                : "Token validation failed"
+        });
     }
 }
 

@@ -142,4 +142,54 @@ export class EKYCContract extends Contract {
 
         return tokenBytes.toString()
     }
+
+    @Transaction(false)
+    async ValidateToken(
+        ctx: Context,
+        tokenId: string
+    ): Promise<string> {
+
+        if (!tokenId) {
+            throw new Error("tokenId is required")
+        }
+
+        const tokenBytes = await ctx.stub.getState(tokenId)
+
+        if (!tokenBytes || tokenBytes.length === 0) {
+            throw new Error(`Token ${tokenId} does not exist`)
+        }
+
+        const token = JSON.parse(tokenBytes.toString())
+
+        if (token.status !== "ACTIVE") {
+            throw new Error(`Token is ${token.status}`)
+        }
+
+        const currentTime = new Date()
+        const expiresAt = new Date(token.expiresAt)
+
+        if (currentTime >= expiresAt) {
+            throw new Error("Token has expired")
+        }
+
+        const consentBytes = await ctx.stub.getState(token.consentId)
+
+        if (!consentBytes || consentBytes.length === 0) {
+            throw new Error(`Consent ${token.consentId} does not exist`)
+        }
+
+        const consent = JSON.parse(consentBytes.toString())
+
+        if (consent.status !== "GIVEN") {
+            throw new Error("Consent is not granted")
+        }
+
+        return JSON.stringify({
+            valid: true,
+            tokenId: token.tokenId,
+            userRef: token.userRef,
+            status: token.status,
+            expiresAt: token.expiresAt
+        })
+    }
 }

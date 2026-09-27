@@ -55,12 +55,12 @@ CHANNEL="kyctokenchannel"
 CC_NAME="kyc-token-cc"
 
 # Previous committed definition:
-# Version: 1.5
-# Sequence: 6
+# Version: 1.6
+# Sequence: 7
 #
 # This deployment contains the new GetConsent transaction.
-CC_VERSION="1.6"
-CC_SEQUENCE=7
+CC_VERSION="1.7"
+CC_SEQUENCE=8
 
 CC_LABEL="${CC_NAME}_${CC_VERSION}"
 
