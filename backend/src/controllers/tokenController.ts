@@ -3,10 +3,9 @@ import 'dotenv/config'
 import { PrismaClient } from "@prisma/client/index"
 import { PrismaPg } from '@prisma/adapter-pg'
 import { createUserRef, createRecordHash } from "../services/kycHashService.js";
-import { issueTokenOnFabric } from "../services/fabricService.js";
+import { issueTokenOnFabric, validateTokenOnFabric } from "../services/fabricService.js";
 import { type Request, type Response } from "express"
 import { markExpiredToken } from '../services/tokenService.js'
-import { validateTokenOnFabric } from "../services/fabricService.js";
 
 const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 const prisma = new PrismaClient({ adapter: pool })
@@ -138,6 +137,9 @@ export async function validate(req: Request, res: Response) {
         }
 
         const validationResult = await validateTokenOnFabric(tokenId);
+
+        console.log("Fabric validation result:", validationResult);
+        console.log("Fabric validation result type:", typeof validationResult);
 
         const validation = JSON.parse(validationResult);
 

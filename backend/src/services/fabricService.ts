@@ -158,12 +158,12 @@ export async function validateTokenOnFabric(
   const { gateway, contract } = await createGateway();
 
   try {
-    const result = await contract.evaluateTransaction(
+    const result = await contract.submitTransaction(
       "ValidateToken",
       tokenId
     );
 
-    return result.toString();
+    return Buffer.from(result).toString("utf8");
   } finally {
     gateway.close();
   }
