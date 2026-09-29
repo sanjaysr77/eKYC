@@ -138,13 +138,15 @@ export async function validate(req: Request, res: Response) {
 
         const validationResult = await validateTokenOnFabric(tokenId);
 
-        console.log("Fabric validation result:", validationResult);
-        console.log("Fabric validation result type:", typeof validationResult);
+        // console.log("Fabric validation result:", validationResult);
+        // console.log("Fabric validation result type:", typeof validationResult);
 
         const validation = JSON.parse(validationResult);
 
         return res.status(200).json({
-            message: "Token is valid",
+            message: validation.valid
+                ? "Token is valid"
+                : "Token is invalid",
             validation
         });
 

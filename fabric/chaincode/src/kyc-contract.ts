@@ -145,81 +145,115 @@ export class EKYCContract extends Contract {
     }
 
     @Transaction()
-async ValidateToken(
-    ctx: Context,
-    tokenId: string
-): Promise<string> {
+    async ValidateToken(
+        ctx: Context,
+        tokenId: string
+    ): Promise<string> {
 
-    if (!tokenId) {
-        throw new Error("tokenId is required")
-    }
-
-    const tokenBytes = await ctx.stub.getState(tokenId)
-
-    if (!tokenBytes || tokenBytes.length === 0) {
-        throw new Error(`Token ${tokenId} does not exist`)
-    }
-
-    const token = JSON.parse(tokenBytes.toString())
-
-    const validationId = crypto.randomUUID()
-
-    let outcome = "VALID"
-    let reason = ""
-
-    if (token.status !== "ACTIVE") {
-        outcome = "INVALID"
-        reason = `Token is ${token.status}`
-    }
-
-    const currentTime = new Date()
-    const expiresAt = new Date(token.expiresAt)
-
-    if (outcome === "VALID" && currentTime >= expiresAt) {
-        outcome = "INVALID"
-        reason = "Token has expired"
-    }
-
-    const consentBytes = await ctx.stub.getState(token.consentId)
-
-    if (!consentBytes || consentBytes.length === 0) {
-        outcome = "INVALID"
-        reason = `Consent ${token.consentId} does not exist`
-    } else {
-        const consent = JSON.parse(consentBytes.toString())
-
-        if (consent.status !== "GIVEN") {
-            outcome = "INVALID"
-            reason = "Consent is not granted"
+        if (!tokenId) {
+            throw new Error("tokenId is required")
         }
+
+        const tokenBytes = await ctx.stub.getState(tokenId)
+
+        if (!tokenBytes || tokenBytes.length === 0) {
+            throw new Error(`Token ${tokenId} does not exist`)
+        }
+
+        const token = JSON.parse(tokenBytes.toString())
+
+        const validationId = crypto.randomUUID()
+
+        let outcome = "VALID"
+        let reason = ""
+
+        if (token.status !== "ACTIVE") {
+            outcome = "INVALID"
+            reason = `Token is ${token.status}`
+        }
+
+        const currentTime = new Date()
+        const expiresAt = new Date(token.expiresAt)
+
+        if (outcome === "VALID" && currentTime >= expiresAt) {
+            outcome = "INVALID"
+            reason = "Token has expired"
+        }
+
+        const consentBytes = await ctx.stub.getState(token.consentId)
+
+        if (!consentBytes || consentBytes.length === 0) {
+            outcome = "INVALID"
+            reason = `Consent ${token.consentId} does not exist`
+        }
+        else {
+            const consent = JSON.parse(consentBytes.toString())
+
+            if (consent.status !== "GIVEN") {
+                outcome = "INVALID"
+                reason = "Consent is not granted"
+            }
+        }
+
+        const validationRecord = {
+            validationId,
+            tokenId,
+            requestingOrg: ctx.clientIdentity.getMSPID(),
+            outcome,
+            reason,
+            validatorMSP: ctx.clientIdentity.getMSPID(),
+            timestamp: ctx.stub.getTxTimestamp(),
+            txId: ctx.stub.getTxID()
+        }
+
+        await ctx.stub.putState(
+            validationId,
+            Buffer.from(JSON.stringify(validationRecord))
+        )
+
+        return JSON.stringify({
+            valid: outcome === "VALID",
+            tokenId: token.tokenId,
+            userRef: token.userRef,
+            status: token.status,
+            expiresAt: token.expiresAt,
+            validationId,
+            validationTxId: ctx.stub.getTxID(),
+            outcome,
+            reason
+        })
     }
 
-    const validationRecord = {
-        validationId,
-        tokenId,
-        requestingOrg: ctx.clientIdentity.getMSPID(),
-        outcome,
-        reason,
-        validatorMSP: ctx.clientIdentity.getMSPID(),
-        timestamp: ctx.stub.getTxTimestamp(),
-        txId: ctx.stub.getTxID()
+    @Transaction()
+    async ExpireToken(ctx: Context, tokenId: string): Promise<void> {
+
+        if (!tokenId)
+            throw new Error("tokenId is required")
+
+        const tokenBytes = await ctx.stub.getState(tokenId)
+
+        if (!tokenBytes || tokenBytes.length === 0) {
+            throw new Error(`Token ${tokenId} does not exist`)
+        }
+
+        const token = JSON.parse(tokenBytes.toString())
+
+        if (token.status !== "ACTIVE") {
+            throw new Error(`Token is already ${token.status}`)
+        }
+
+        const currentTime = new Date()
+        const expiresAt = new Date(token.expiresAt)
+
+        if (currentTime < expiresAt) {
+            throw new Error("Token has not expired yet")
+        }
+
+        token.status = "EXPIRED"
+
+        await ctx.stub.putState(
+            tokenId,
+            Buffer.from(JSON.stringify(token))
+        )
     }
-
-    await ctx.stub.putState(
-        validationId,
-        Buffer.from(JSON.stringify(validationRecord))
-    )
-
-    return JSON.stringify({
-        valid: outcome === "VALID",
-        tokenId: token.tokenId,
-        userRef: token.userRef,
-        status: token.status,
-        expiresAt: token.expiresAt,
-        validationId,
-        validationTxId: ctx.stub.getTxID(),
-        outcome,
-        reason
-    })
-}
 }

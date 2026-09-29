@@ -168,3 +168,18 @@ export async function validateTokenOnFabric(
     gateway.close();
   }
 }
+
+export async function expireTokenOnFabric(tokenId: string): Promise<string> {
+  const { gateway, contract } = await createGateway();
+
+  try {
+    const result = await contract.submitTransaction(
+      "ExpireToken",
+      tokenId
+    );
+
+    return Buffer.from(result).toString("utf8");
+  } finally {
+    gateway.close();
+  }
+}
