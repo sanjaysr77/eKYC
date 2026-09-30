@@ -109,6 +109,7 @@ export async function recordConsentOnFabric(
   consentId: string,
   customerId: string
 ): Promise<string> {
+
   const { gateway, contract } = await createGateway();
 
   try {
@@ -133,6 +134,7 @@ export async function issueTokenOnFabric(
   recordHash: string,
   expiresAt: string
 ): Promise<string> {
+
   const { gateway, contract } = await createGateway();
 
   try {
@@ -155,6 +157,7 @@ export async function issueTokenOnFabric(
 export async function validateTokenOnFabric(
   tokenId: string
 ): Promise<string> {
+
   const { gateway, contract } = await createGateway();
 
   try {
@@ -170,6 +173,7 @@ export async function validateTokenOnFabric(
 }
 
 export async function expireTokenOnFabric(tokenId: string): Promise<string> {
+
   const { gateway, contract } = await createGateway();
 
   try {
@@ -178,6 +182,23 @@ export async function expireTokenOnFabric(tokenId: string): Promise<string> {
       tokenId
     );
 
+    return Buffer.from(result).toString("utf8");
+  } finally {
+    gateway.close();
+  }
+}
+
+export async function refreshTokenOnFabric(oldTokenId: string, newTokenId: string, expiresAt: string): Promise<string> {
+
+  const { gateway, contract } = await createGateway();
+
+  try {
+    const result = await contract.submitTransaction(
+      "RefreshToken",
+      oldTokenId,
+      newTokenId,
+      expiresAt
+    );
     return Buffer.from(result).toString("utf8");
   } finally {
     gateway.close();

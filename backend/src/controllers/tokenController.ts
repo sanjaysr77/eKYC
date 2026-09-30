@@ -225,7 +225,7 @@ export async function refresh(req: Request, res: Response) {
             })
         }
 
-        //await markExpiredToken(customerId)
+        // await expireToken(customerId)
 
         const existingToken = await prisma.token.findFirst({
             where: {

@@ -256,4 +256,77 @@ export class EKYCContract extends Contract {
             Buffer.from(JSON.stringify(token))
         )
     }
+
+    @Transaction()
+    async RefreshToken(
+        ctx: Context,
+        oldTokenId: string,
+        newTokenId: string,
+        expiresAt: string
+    ): Promise<void> {
+
+        if (!oldTokenId) {
+            throw new Error("oldTokenId is required")
+        }
+
+        if (!newTokenId) {
+            throw new Error("newTokenId is required")
+        }
+
+        if (!expiresAt) {
+            throw new Error("expiresAt is required")
+        }
+
+        const oldTokenBytes = await ctx.stub.getState(oldTokenId)
+
+        if (!oldTokenBytes || oldTokenBytes.length === 0) {
+            throw new Error(`Token ${oldTokenId} does not exist`)
+        }
+
+        const oldToken = JSON.parse(oldTokenBytes.toString())
+
+        if (oldToken.status !== "EXPIRED") {
+            throw new Error("Only expired tokens can be refreshed")
+        }
+
+        const consentBytes = await ctx.stub.getState(oldToken.consentId)
+
+        if (!consentBytes || consentBytes.length === 0) {
+            throw new Error(`Consent ${oldToken.consentId} does not exist`)
+        }
+
+        const consent = JSON.parse(consentBytes.toString())
+
+        if (consent.status !== "GIVEN") {
+            throw new Error("Consent is not granted")
+        }
+
+        const existingToken = await ctx.stub.getState(newTokenId)
+
+        if (existingToken && existingToken.length > 0) {
+            throw new Error(`Token ${newTokenId} already exists`)
+        }
+
+        const newToken = {
+            tokenId: newTokenId,
+            userRef: oldToken.userRef,
+            customerId: oldToken.customerId,
+            consentId: oldToken.consentId,
+            recordHash: oldToken.recordHash,
+            status: "ACTIVE",
+            expiresAt
+        }
+
+        await ctx.stub.putState(
+            newTokenId,
+            Buffer.from(JSON.stringify(newToken))
+        )
+
+        oldToken.status = "EXPIRED"
+
+        await ctx.stub.putState(
+            oldTokenId,
+            Buffer.from(JSON.stringify(oldToken))
+        )
+    }
 }
