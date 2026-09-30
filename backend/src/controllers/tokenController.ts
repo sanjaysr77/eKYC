@@ -5,7 +5,7 @@ import { PrismaPg } from '@prisma/adapter-pg'
 import { createUserRef, createRecordHash } from "../services/kycHashService.js";
 import { issueTokenOnFabric, validateTokenOnFabric } from "../services/fabricService.js";
 import { type Request, type Response } from "express"
-import { expireToken } from '../services/tokenService.js'
+import { expireToken, refreshToken } from '../services/tokenService.js'
 
 const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 const prisma = new PrismaClient({ adapter: pool })
@@ -173,99 +173,22 @@ export async function refresh(req: Request, res: Response) {
             })
         }
 
-        const tokenQuery = await prisma.token.findUnique({
-            where: {
-                id: tokenId
-            }
-        })
-
-        if (!tokenQuery) {
-            return res.status(404).json({
-                message: "Token not found"
-            });
-        }
-
-        const customerId = tokenQuery.customerId;
-
-        const customer = await prisma.customer.findUnique({
-            where: { id: customerId }
-        })
-
-        if (!customer) {
-            return res.status(404).json({
-                message: "Customer not found"
-            })
-        }
-
-        if (!customer.verified) {
-            return res.status(400).json({
-                message: "Customer is not verified"
-            })
-        }
-
-        const consent = await prisma.consent.findFirst({
-            where: {
-                customerId: customerId
-            },
-            orderBy: {
-                createdAt: "desc"
-            }
-
-        })
-
-        if (!consent) {
-            return res.status(400).json({
-                message: "Consent Id not found"
-            })
-        }
-
-        if (consent.status !== "GIVEN") {
-            return res.status(403).json({
-                message: "Consent not granted. Cannot refresh token."
-            })
-        }
-
-        // await expireToken(customerId)
-
-        const existingToken = await prisma.token.findFirst({
-            where: {
-                id: tokenId,
-                status: "ACTIVE"
-            },
-        })
-
-        if (existingToken) {
-            return res.status(200).json({
-                message: "Active Token exists",
-                existingToken
-            })
-        }
-
-        const expiresAt = new Date();
-
-        expiresAt.setHours(expiresAt.getHours() + 1);
-
-        const token = await prisma.token.create({
-            data: {
-                customerId: customerId,
-                consentId: consent.id,
-                expiresAt,
-                status: "ACTIVE"
-            }
-        })
+        const newToken = await refreshToken(tokenId);
 
         return res.status(201).json({
             message: "New token issued successfully.",
-            expiresAt: expiresAt,
-            token: token.id
+            expiresAt: newToken.expiresAt,
+            token: newToken.id
         })
 
-    }
-    catch (error) {
-        console.error(error)
-        return res.status(500).json({
-            message: "Internal Server Error",
-            error: error
+    } catch (error) {
+
+        console.error("Refresh Error:", error)
+
+        return res.status(400).json({
+            message: error instanceof Error
+                ? error.message
+                : "Token refresh failed"
         })
     }
 }
