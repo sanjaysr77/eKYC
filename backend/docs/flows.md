@@ -408,7 +408,68 @@ Revoke an active token, marking it as "REVOKED" to prevent further use.
 
 ---
 
-## 10. Future Enhancements
+## 10. Token Revocation (Hyperledger)
+
+### RevokeToken (Blockchain)
+
+Revoke an active token on the blockchain, marking it as "REVOKED" to prevent further use. This provides an immutable audit trail of token revocations.
+
+**Smart Contract Method:**
+```typescript
+RevokeToken(ctx: Context, tokenId: string)
+```
+
+**Request Parameters:**
+- `tokenId` - Token UUID to revoke
+
+**Flow:**
+1. Receive tokenId from request
+2. Validate tokenId is provided
+3. Retrieve token from blockchain ledger using `getState(tokenId)`
+4. Check if token exists on blockchain
+5. Parse token data and verify current status
+6. If token status is not "ACTIVE", throw error (cannot revoke expired/already revoked tokens)
+7. Update token status to "REVOKED"
+8. Write updated token back to blockchain using `putState()`
+9. Return success (transaction is recorded immutably on ledger)
+
+**Success Response:**
+```json
+{
+  "tokenId": "uuid",
+  "status": "REVOKED",
+  "txId": "blockchain-transaction-id",
+  "message": "Token revoked successfully on blockchain"
+}
+```
+
+**Error Responses:**
+```json
+{
+  "error": "Token xyz does not exist"
+}
+```
+```json
+{
+  "error": "Token is already EXPIRED"
+}
+```
+
+**Blockchain Benefits:**
+- Immutable revocation record (cannot be altered or deleted)
+- Distributed consensus ensures all organizations see the same state
+- Complete audit trail with transaction ID and timestamp
+- Cross-organizational token revocation visibility
+
+**Status codes:**
+- 200: Token revoked successfully on blockchain
+- 400: Invalid request or token not in ACTIVE state
+- 404: Token not found on ledger
+- 500: Blockchain/chaincode error
+
+---
+
+## 11. Future Enhancements
 
 ### Hyperledger Integration
 Blockchain integration for immutable consent and token records.
