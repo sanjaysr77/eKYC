@@ -329,4 +329,31 @@ export class EKYCContract extends Contract {
             Buffer.from(JSON.stringify(oldToken))
         )
     }
+
+    @Transaction()
+    async RevokeToken(ctx: Context, tokenId: string): Promise<void> {
+
+        if (!tokenId) {
+            throw new Error("tokenId is required")
+        }
+
+        const tokenBytes = await ctx.stub.getState(tokenId)
+
+        if (!tokenBytes || tokenBytes.length === 0) {
+            throw new Error(`Token ${tokenId} does not exist`)
+        }
+
+        const token = JSON.parse(tokenBytes.toString())
+
+        if (token.status === "REVOKED") {
+            throw new Error("Token is already REVOKED")
+        }
+
+        token.status = "REVOKED"
+
+        await ctx.stub.putState(
+            tokenId,
+            Buffer.from(JSON.stringify(token))
+        )
+    }
 }
