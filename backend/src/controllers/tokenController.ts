@@ -5,7 +5,7 @@ import { PrismaPg } from '@prisma/adapter-pg'
 import { createUserRef, createRecordHash } from "../services/kycHashService.js";
 import { issueTokenOnFabric, validateTokenOnFabric } from "../services/fabricService.js";
 import { type Request, type Response } from "express"
-import { expireToken, refreshToken } from '../services/tokenService.js'
+import { expireToken, refreshToken, revokeToken } from '../services/tokenService.js'
 
 const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 const prisma = new PrismaClient({ adapter: pool })
@@ -204,53 +204,21 @@ export async function revoke(req: Request, res: Response) {
             })
         }
 
-        const token = await prisma.token.findUnique({
-            where: {
-                id: tokenId
-            }
-        })
-
-        if (!token) {
-            return res.status(404).json({
-                message: "Token not found"
-            })
-        }
-
-        //await markExpiredToken(token.customerId);
-
-        const refreshedToken = await prisma.token.findUnique({
-            where: {
-                id: tokenId
-            }
-        })
-
-        if (refreshedToken!.status !== "ACTIVE") {
-            return res.status(400).json({
-                message: `Token is already ${refreshedToken!.status}`,
-                currentStatus: refreshedToken!.status
-            })
-        }
-
-        await prisma.token.update({
-            where: {
-                id: tokenId
-            },
-            data: {
-                status: "REVOKED"
-            }
-        })
+        const revokedToken = await revokeToken(tokenId)
 
         return res.status(200).json({
             message: "Token Revoked Successfully",
-            tokenId: tokenId
+            tokenId: revokedToken.id
         })
 
-    }
-    catch (error) {
-        console.error("Revoke Error", error)
-        return res.status(500).json({
-            message: "Internal Server Error",
-            error: error
+    } catch (error) {
+
+        console.error("Revoke Error:", error)
+
+        return res.status(400).json({
+            message: error instanceof Error
+                ? error.message
+                : "Token revocation failed"
         })
     }
 }

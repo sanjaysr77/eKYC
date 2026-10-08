@@ -3,8 +3,7 @@ import 'dotenv/config'
 import { PrismaClient } from "@prisma/client/index"
 import { PrismaPg } from '@prisma/adapter-pg'
 import crypto from "node:crypto"
-import { refreshTokenOnFabric } from './fabricService.js'
-import { expireTokenOnFabric } from './fabricService.js'
+import { expireTokenOnFabric, refreshTokenOnFabric, revokeTokenOnFabric } from "../services/fabricService.js";
 
 const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 
@@ -94,4 +93,34 @@ export async function refreshToken(tokenId: string) {
     })
 
     return newToken
+}
+
+export async function revokeToken(tokenId: string) {
+
+    const token = await prisma.token.findUnique({
+        where: {
+            id: tokenId
+        }
+    })
+
+    if (!token) {
+        throw new Error("Token not found")
+    }
+
+    if (token.status !== "ACTIVE") {
+        throw new Error(`Token is already ${token.status}`)
+    }
+
+    await revokeTokenOnFabric(tokenId)
+
+    const revokedToken = await prisma.token.update({
+        where: {
+            id: tokenId
+        },
+        data: {
+            status: "REVOKED"
+        }
+    })
+
+    return revokedToken
 }
