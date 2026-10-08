@@ -95,3 +95,76 @@ export async function getConsentRecords(req: Request, res: Response) {
   }
 
 }
+
+export async function withdrawConsent(req: Request, res: Response) {
+  try {
+    const customerId = req.body.customerId;
+
+    if (!customerId) {
+      return res.status(400).json({
+        message: "Customer Id is not present"
+      });
+    }
+
+    const customer = await prisma.customer.findUnique({
+      where: { id: customerId },
+      include: {
+        consents: {
+          orderBy: { createdAt: "desc" },
+          take: 1
+        }
+      }
+    });
+
+    if (!customer) {
+      return res.status(404).json({
+        message: "Customer is not found"
+      });
+    }
+
+    if (!customer.verified) {
+      return res.status(400).json({
+        message: "Customer is not verified"
+      });
+    }
+
+    if (!customer.verificationId) {
+      return res.status(400).json({
+        message: "Customer verification ID is missing"
+      });
+    }
+
+    const latestConsent = customer.consents[0];
+    console.log("Latest Consent", latestConsent)
+
+    if (latestConsent.status == "WITHDRAWN") {
+      return res.status(400).json({
+        message: "Consent is already WITHDRAWN",
+        consent: latestConsent.status
+      })
+    }
+
+    // Add a Fabric Call here
+
+    const consentRecord = await prisma.consent.create({
+      data: {
+        customerId: customerId,
+        status: "WITHDRAWN"
+      }
+    });
+
+    console.log(consentRecord)
+
+    return res.status(201).json({
+      message: `Consent for Customer Id ${customerId} is WITHDRAWN`
+    })
+  }
+  catch (err) {
+
+    console.error("Server Error", err);
+
+    return res.status(500).json({
+      error: "Something went wrong"
+    });
+  }
+}
