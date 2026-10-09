@@ -56,16 +56,30 @@ export async function tokenIssuance(req: Request, res: Response) {
             });
         }
 
-        const existingToken = await prisma.token.findFirst({
+        const existingToken = await prisma.customer.findUnique({
             where: {
-                customerId,
+                id: customerId,
+            },
+            include: {
+                tokens: {
+                    orderBy: { createdAt: "desc" },
+                    take: 1
+                }
             }
         });
+
+        if (!existingToken) {
+            return res.status(404).json({
+                message: "Customer is not found"
+            });
+        }
+
+        const latestToken = existingToken.tokens[0];
 
         if (existingToken) {
             return res.status(400).json({
                 message: "Token Already Exists. Try Refreshing",
-                token: existingToken.id
+                token: latestToken
             });
         }
 

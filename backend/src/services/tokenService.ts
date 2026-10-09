@@ -53,6 +53,8 @@ export async function refreshToken(tokenId: string) {
         throw new Error("Token not found")
     }
 
+    //expireToken(tokenId);
+
     if (token.status !== "EXPIRED") {
         throw new Error(`Token is ${token.status}. Only expired tokens can be refreshed`)
     }
