@@ -220,3 +220,19 @@ export async function revokeTokenOnFabric(tokenId: string): Promise<string> {
     gateway.close();
   }
 }
+
+export async function withdrawConsentOnFabric(consentId: string): Promise<string> {
+
+    const { gateway, contract } = await createGateway();
+
+    try {
+        const result = await contract.submitTransaction(
+            "WithdrawConsent",
+            consentId
+        );
+
+        return Buffer.from(result).toString("utf8");
+    } finally {
+        gateway.close();
+    }
+}

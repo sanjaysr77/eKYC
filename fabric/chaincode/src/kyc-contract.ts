@@ -356,4 +356,35 @@ export class EKYCContract extends Contract {
             Buffer.from(JSON.stringify(token))
         )
     }
+
+    @Transaction()
+    async WithdrawConsent(
+        ctx: Context,
+        consentId: string
+    ): Promise<void> {
+
+        if (!consentId) {
+            throw new Error("consentId is required")
+        }
+
+        const consentBytes = await ctx.stub.getState(consentId)
+
+        if (!consentBytes || consentBytes.length === 0) {
+            throw new Error(`Consent ${consentId} does not exist`)
+        }
+
+        const consent = JSON.parse(consentBytes.toString())
+
+        if (consent.status === "WITHDRAWN") {
+            throw new Error("Consent is already WITHDRAWN")
+        }
+
+        consent.status = "WITHDRAWN"
+        consent.timestamp = ctx.stub.getTxTimestamp()
+
+        await ctx.stub.putState(
+            consentId,
+            Buffer.from(JSON.stringify(consent))
+        )
+    }
 }

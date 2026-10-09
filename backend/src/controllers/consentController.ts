@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client/index"
 import { PrismaPg } from '@prisma/adapter-pg'
 import { type Request, type Response } from "express"
 import { verifyAadhaar } from "../services/aadhaarVerificationService.js"
-import { recordConsentOnFabric } from '../services/fabricService.js'
+import { recordConsentOnFabric, withdrawConsentOnFabric } from '../services/fabricService.js'
 
 const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 const prisma = new PrismaClient({ adapter: pool })
@@ -128,40 +128,37 @@ export async function withdrawConsent(req: Request, res: Response) {
       });
     }
 
-    if (!customer.verificationId) {
-      return res.status(400).json({
-        message: "Customer verification ID is missing"
+    const latestConsent = customer.consents[0];
+
+    if (!latestConsent) {
+      return res.status(404).json({
+        message: "No consent record found"
       });
     }
 
-    const latestConsent = customer.consents[0];
-    console.log("Latest Consent", latestConsent)
-
-    if (latestConsent.status == "WITHDRAWN") {
+    if (latestConsent.status === "WITHDRAWN") {
       return res.status(400).json({
         message: "Consent is already WITHDRAWN",
         consent: latestConsent.status
-      })
+      });
     }
 
-    // Add a Fabric Call here
+    await withdrawConsentOnFabric(latestConsent.id);
 
     const consentRecord = await prisma.consent.create({
       data: {
-        customerId: customerId,
+        customerId,
         status: "WITHDRAWN"
       }
     });
 
-    console.log(consentRecord)
-
     return res.status(201).json({
-      message: `Consent for Customer Id ${customerId} is WITHDRAWN`
-    })
-  }
-  catch (err) {
+      message: `Consent for Customer Id ${customerId} is WITHDRAWN`,
+      consent: consentRecord
+    });
 
-    console.error("Server Error", err);
+  } catch (err) {
+    console.error("Consent Withdrawal Error:", err);
 
     return res.status(500).json({
       error: "Something went wrong"

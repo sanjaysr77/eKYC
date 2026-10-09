@@ -55,12 +55,12 @@ CHANNEL="kyctokenchannel"
 CC_NAME="kyc-token-cc"
 
 # Previous committed definition:
-# Version: 2.0
-# Sequence: 11
+# Version: 2.1
+# Sequence: 12
 #
 # This deployment contains the new ExpireToken transaction.
-CC_VERSION="2.1"
-CC_SEQUENCE=12
+CC_VERSION="2.2"
+CC_SEQUENCE=13
 
 CC_LABEL="${CC_NAME}_${CC_VERSION}"
 
