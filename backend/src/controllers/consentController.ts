@@ -11,6 +11,18 @@ const prisma = new PrismaClient({ adapter: pool })
 export async function submitConsent(req: Request, res: Response) {
   const { aadhaar, consent } = req.body;
 
+  if (typeof aadhaar !== "string" || !/^\d{12}$/.test(aadhaar)) {
+    return res.status(400).json({
+      message: "A valid 12-digit Aadhaar value is required."
+    });
+  }
+
+  if (consent !== "GIVEN") {
+    return res.status(400).json({
+      message: "Consent must be GIVEN during initial customer creation."
+    });
+  }
+
   try {
 
     const verificationResult = await verifyAadhaar(aadhaar);
@@ -23,38 +35,59 @@ export async function submitConsent(req: Request, res: Response) {
       });
     }
 
-    let customer = await prisma.customer.findUnique({
+    const existingCustomer = await prisma.customer.findUnique({
       where: { aadhaar }
     });
 
-    if (!customer) {
-      customer = await prisma.customer.create({
-        data: {
-          aadhaar,
-          verified: true,
-          verificationId: verificationResult.verificationId
-        }
+    if (existingCustomer) {
+      return res.status(409).json({
+        message: "Customer already exists."
       });
     }
 
-    const consentRecord = await prisma.consent.create({
+    const customerId = crypto.randomUUID();
+    const consentId = crypto.randomUUID();
+
+    await recordConsentOnFabric(consentId, customerId);
+
+    const customer = await prisma.customer.create({
       data: {
-        customerId: customer.id,
-        status: consent
+        id: customerId,
+        aadhaar,
+        verified: true,
+        verificationId: verificationResult.verificationId
       }
     });
 
-    await recordConsentOnFabric(consentRecord.id, customer.id);
+    const consentRecord = await prisma.consent.create({
+      data: {
+        id: consentId,
+        customerId: customer.id,
+        status: "GIVEN"
+      }
+    });
 
-    return res.status(201).json({ consent: consentRecord });
+    return res.status(201).json({
+      consent: consentRecord
+    });
+
   } catch (err) {
-    console.error("Server Error", err);
+
+    if (
+      typeof err === "object" && err !== null && "code" in err && err.code === "P2002"
+    ) {
+      return res.status(409).json({
+        message: "A customer with this Aadhaar already exists."
+      });
+    }
+
+    console.error("Consent submission error:", err);
 
     return res.status(500).json({
       error: "Something went wrong"
     });
   }
-};
+}
 
 export async function getConsentRecords(req: Request, res: Response) {
 
