@@ -59,8 +59,8 @@ CC_NAME="kyc-token-cc"
 # Sequence: 12
 #
 # This deployment contains the new ExpireToken transaction.
-CC_VERSION="2.2"
-CC_SEQUENCE=13
+CC_VERSION="1.0"
+CC_SEQUENCE=1
 
 CC_LABEL="${CC_NAME}_${CC_VERSION}"
 

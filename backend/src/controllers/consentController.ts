@@ -131,11 +131,11 @@ export async function getConsentRecords(req: Request, res: Response) {
 
 export async function withdrawConsent(req: Request, res: Response) {
   try {
-    const customerId = req.body.customerId;
+    const { customerId } = req.body;
 
-    if (!customerId) {
+    if (typeof customerId !== "string" || customerId.trim().length === 0) {
       return res.status(400).json({
-        message: "Customer Id is not present"
+        message: "A valid customer ID is required."
       });
     }
 
@@ -176,17 +176,31 @@ export async function withdrawConsent(req: Request, res: Response) {
       });
     }
 
-    await withdrawConsentOnFabric(latestConsent.id);
+    try {
+      await withdrawConsentOnFabric(latestConsent.id);
+    } 
+    catch (fabricError) {
+      const message =
+        fabricError instanceof Error ? fabricError.message : String(fabricError);
+
+      if (message.includes("Consent is already WITHDRAWN")) {
+        return res.status(409).json({
+          message: "Consent is already withdrawn on Fabric."
+        });
+      }
+
+      throw fabricError;
+    }
 
     const consentRecord = await prisma.consent.create({
       data: {
-        customerId,
+        customerId: customer.id,
         status: "WITHDRAWN"
       }
     });
 
     return res.status(201).json({
-      message: `Consent for Customer Id ${customerId} is WITHDRAWN`,
+      message: `Consent for Customer ID ${customer.id} is WITHDRAWN`,
       consent: consentRecord
     });
 
